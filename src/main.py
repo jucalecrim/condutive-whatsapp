@@ -13,7 +13,7 @@ def read_root():
 
 @app.get("/test")
 def funct():
-    return hello_world()
+    return  hello_world()
 
 @app.get("/captcha")
 def get_captcha():
