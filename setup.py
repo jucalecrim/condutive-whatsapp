@@ -12,7 +12,7 @@ def get_version():
 
 
 setup(
-    name="condutive_whatsapp",  # Your package name
+    name="condutive-whatsapp",  # Your package name
     version=get_version(),
     packages=find_packages(where="src"),
     package_dir={"": "src"},
@@ -20,7 +20,7 @@ setup(
     description="Pacote de formulas para API do bot de whatsapp",
     author="jucalecrim",
     author_email="jucalecrim@outlook.com",
-    url="https://github.com/jucalecrim/condutive_whatsapp.git",
+    url="https://github.com/jucalecrim/condutive-whatsapp.git",
     classifiers=[
         "Programming Language :: Python :: 3",
         "License :: OSI Approved :: MIT License",
