@@ -3,7 +3,7 @@ from fastapi import FastAPI, Header, HTTPException, Query, Request, Body
 from fastapi.responses import HTMLResponse, JSONResponse
 from typing import Optional
 import pacote_back_condutive as pk
-from condutive_whatsapp.core import hello_world
+import condutive_whatsapp as wpp
 
 
 app = FastAPI()
@@ -14,7 +14,7 @@ def read_root():
 
 @app.get("/test")
 def funct():
-    return hello_world()
+    return wpp.hello_world()
 
 @app.get("/captcha")
 def get_captcha():

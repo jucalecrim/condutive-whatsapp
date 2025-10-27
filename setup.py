@@ -14,8 +14,9 @@ def get_version():
 setup(
     name="condutive-whatsapp",  # Your package name
     version=get_version(),
-    packages=find_packages(),
-    install_requires= ['numpy', 'pandas', 'datetime', 'flask'],  # Add dependencies here, e.g., ["numpy"]
+    packages=find_packages(where="src"),
+    package_dir={"": "src"},
+    install_requires= ['fastapi','numpy', 'pandas', 'datetime', 'flask'],  # Add dependencies here, e.g., ["numpy"]
     description="Pacote de formulas para API do bot de whatsapp",
     author="jucalecrim",
     author_email="jucalecrim@outlook.com",
