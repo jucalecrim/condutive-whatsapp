@@ -3,7 +3,8 @@ from fastapi import FastAPI, Header, HTTPException, Query, Request, Body
 from fastapi.responses import HTMLResponse, JSONResponse
 from typing import Optional
 #import pacote_back_condutive as pk
-from .core import *
+from condutive_whatsapp.core import hello_world
+
 
 app = FastAPI()
 
