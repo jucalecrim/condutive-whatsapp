@@ -1,0 +1,21 @@
+# Dependências principais
+requests>=2.31.0
+pydantic>=2.0.0
+
+# O que eu acho que deve ter
+Flask
+gunicorn
+pandas
+numpy
+requests
+python-dotenv
+psycopg2-binary==2.9.9
+sqlalchemy==2.0.30
+openpyxl==3.1.2
+pytz==2024.1
+flask-cors
+validate-docbr
+
+# Dependências opcionais (por exemplo, para API)
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
