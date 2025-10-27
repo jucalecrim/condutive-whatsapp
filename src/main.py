@@ -59,8 +59,8 @@ def route_new_lead(
 @app.get("/cadastro_doct")
 def route_new_doct(       
         tipo_doct: str = Query(...),
-        nr_documento: str = Query(...),
-        insert_data: Optional[int] = Query(None)
+        nr_documento: str = Query(...)
+        # insert_data: Optional[int] = Query(None)
 ):
     try:
         
@@ -70,12 +70,12 @@ def route_new_doct(
             raise HTTPException(status_code=400, detail="Número do documento não informado")
         elif pk.contains_number(tipo_doct):
             raise HTTPException(status_code=400, detail=f"Apenas indique o tipo de documento não o número do documento. O dado inserido {tipo_doct} está incorreto.")
-        elif (tipo_doct == "CPF") & len(str(nr_documento)) < 11:
+        elif (tipo_doct == "CPF") & (len(str(nr_documento)) < 11):
             raise HTTPException(status_code=400, detail="O CPF {} que você inseriu, contem apenas {} digitos. Favor inserir todos os 11 caracteres do CPF".format(nr_documento,len(str(nr_documento))))
-        elif (tipo_doct == "CNPJ") & len(str(nr_documento)) < 14:
+        elif (tipo_doct == "CNPJ") & (len(str(nr_documento)) < 14):
             raise HTTPException(status_code=400, detail="O CNPJ {} que você inseriu, contem apenas {} digitos. Favor inserir todos os 14 digitos do CNPJ".format(nr_documento,len(str(nr_documento))))
-        elif insert_data is not None:
-            return cadastro_doct(tipo_doct, nr_documento, insert_data)
+        # elif insert_data is not None:
+        #     return cadastro_doct(tipo_doct, nr_documento, insert_data)
         else:
             return cadastro_doct(tipo_doct, nr_documento)
         
