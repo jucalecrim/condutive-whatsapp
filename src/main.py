@@ -9,13 +9,75 @@ app = FastAPI()
 
 @app.get("/", response_class=HTMLResponse)
 def read_root():
-    return """O repo está funcionando"""
+    return """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Condutive WhatsApp API</title>
+</head>
+<body style="font-family: monospace; background: #111; color: #eee; text-align: center;">
+    <img src="https://inozxjodesulcewzsbln.supabase.co/storage/v1/object/public/documents/af%20welcome%20msg.png" alt="Welcome AF">
+</body>
+</html>"""
 
-@app.get("/test")
-def funct():
-    return  hello_world()
+@app.get("/ver")
+def route_ver_ucs(tel: int):
+    return ver_ucs(tel)
 
-@app.get("/captcha")
-def get_captcha():
-    return pk.charada()
 
+@app.get("/espera")
+def route_ucs_problema(tel: int):
+    return ucs_problema(tel)
+
+
+@app.get("/cadastro_lead")
+def route_new_lead(
+        tel_agente: int = Query(...),
+        nome: str = Query(...),
+        telefone: int = Query(...),
+        email: Optional[str] = Query(None)
+
+):
+    if tel_agente is None:
+        raise HTTPException(status_code=400, detail="Telefone do agente não informado")
+    elif nome is None:
+        raise HTTPException(status_code=400, detail="Nome não informado")
+    elif pk.contains_number(nome):
+        raise HTTPException(status_code=400, detail="Nome não pode receber números apenas texto")
+    elif telefone is None:
+        raise HTTPException(status_code=400, detail="Telefone do lead não informado")
+    elif (len(str(telefone)) < 10) | (len(str(telefone)) > 11):
+        raise HTTPException(status_code=400, detail="Telefone informado incorretamente o número deve apenas numerico com os dois digitos de código da região")
+    elif email is not None:
+        if pk.is_valid_email(email) == False:
+            raise HTTPException(status_code=400, detail="Email informado é invalido")
+    try:
+        return cadastro_lead(tel_agente, nome, telefone, email)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+        
+@app.get("/cadastro_doct")
+def route_new_doct(       
+        tipo_doct: str = Query(...),
+        nr_documento: str = Query(...),
+        insert_data: Optional[int] = Query(None)
+):
+    try:
+        
+        if tipo_doct is None:
+            raise HTTPException(status_code=400, detail="Tipo de documento: CPF ou CNPJ faltando")
+        elif nr_documento is None:
+            raise HTTPException(status_code=400, detail="Número do documento não informado")
+        elif pk.contains_number(tipo_doct):
+            raise HTTPException(status_code=400, detail=f"Apenas indique o tipo de documento não o número do documento. O dado inserido {tipo_doct} está incorreto.")
+        elif (tipo_doct == "CPF") & len(str(nr_documento)) < 11:
+            raise HTTPException(status_code=400, detail="O CPF {} que você inseriu, contem apenas {} digitos. Favor inserir todos os 11 caracteres do CPF".format(nr_documento,len(str(nr_documento))))
+        elif (tipo_doct == "CNPJ") & len(str(nr_documento)) < 14:
+            raise HTTPException(status_code=400, detail="O CNPJ {} que você inseriu, contem apenas {} digitos. Favor inserir todos os 14 digitos do CNPJ".format(nr_documento,len(str(nr_documento))))
+        elif insert_data is not None:
+            return cadastro_doct(tipo_doct, nr_documento, insert_data)
+        else:
+            return cadastro_doct(tipo_doct, nr_documento)
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

@@ -1,22 +1,21 @@
 from setuptools import setup, find_packages
 import os
 
-# Read the version from __init__.py
+# Read version from src/__init__.py
 def get_version():
-    version_file = os.path.join("src/", "__init__.py")
+    version_file = os.path.join("src", "__init__.py")
     with open(version_file) as f:
         for line in f:
             if line.startswith("__version__"):
                 return line.split("=")[1].strip().strip('"')
     raise RuntimeError("Unable to find version string in __init__.py.")
 
-
 setup(
-    name="condutive-whatsapp",  # Your package name
+    name="condutive-whatsapp",
     version=get_version(),
     packages=find_packages(where="src"),
     package_dir={"": "src"},
-    install_requires= ['fastapi','numpy', 'pandas', 'datetime', 'flask'],  # Add dependencies here, e.g., ["numpy"]
+    install_requires=['fastapi', 'numpy', 'pandas', 'datetime', 'flask', 'gunicorn', 'uvicorn', 'requests', 'validate_docbr'],
     description="Pacote de formulas para API do bot de whatsapp",
     author="jucalecrim",
     author_email="jucalecrim@outlook.com",
