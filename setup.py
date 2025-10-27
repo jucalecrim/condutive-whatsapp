@@ -3,7 +3,7 @@ import os
 
 # Read the version from __init__.py
 def get_version():
-    version_file = os.path.join("src/condutive_whatsapp", "__init__.py")
+    version_file = os.path.join("src/", "__init__.py")
     with open(version_file) as f:
         for line in f:
             if line.startswith("__version__"):
