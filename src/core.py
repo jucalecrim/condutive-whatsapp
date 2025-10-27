@@ -36,7 +36,6 @@ def stauts_ucs(tel):
     else:
         return check1
     
-    
 def ver_ucs(tel):
     try:
         df_all = stauts_ucs(tel)
@@ -112,7 +111,7 @@ def cadastro_lead(tel_agente, nome, telefone, email):
         return check1
     
     try:
-        nome_agente, id_agente, nome_lider = check1.get("nome_agente"), check1.get("id_agente"), check1.get("nome_lider")
+        nome_agente, id_agente, nome_lider, id_lider = check1.get("nome_agente"), check1.get("id_agente"), check1.get("nome_lider"), check1.get("id_lider")
         
         mensagem = f"{nome_agente} recebemos sua solicitação e identificamos que "
         
@@ -161,16 +160,72 @@ def cadastro_lead(tel_agente, nome, telefone, email):
                     return {"status_code":200, "status": prospect, "mensagem":mensagem, "actions":actions, "return_data":{"id_prospect":id_prospect}}
         else:
             #Novo cadastro de lead
-            prospect = "Novo lead solicitado para cadastro"
+            
             mensagem = mensagem + "você está solicitando um novo lead válido para cadastro. O documento atrelado a conta de luz está em nome de uma pessoa física ou uma empresa? "
-            return {"status_code":200, "status": prospect, "mensagem":mensagem, "actions":{"1":"PF", "2":"PJ"}, 'return_data':{'nome':nome, 'telefone':telefone, 'email':email}}
+            #Só escreve novo lead aqui
+            return_data = {'id_agente':id_agente, 'id_lider':id_lider, 'nome':nome, 'telefone':telefone, 'email':email}
+            try:
+                print("Tentando escrever novo lead")
+                return_insertion = newLead_whats(return_data)
+                print(return_insertion)
+                prospect = "Novo lead solicitado para cadastro e inserido na base"
+            except Exception as e:
+                print("Não consegui escrever na base de dados este novo lead")
+                prospect = f"Novo lead solicitado para cadastro porém com erro ao escrever no banco de dados: {e}"
+                
+            return {"status_code":200, "status": prospect, "mensagem":mensagem, "actions":{"1":"PF", "2":"PJ"}, 'return_data':return_data}
             
         return {"status_code":200, "status": prospect, "mensagem":mensagem, "actions":actions}
 
     except Exception as e:
         return {'status_code':500, 'detail':str(e)}
     
+def cadastro_doct(tipo_doct, nr_documento, insert_data = None, db = 'prod'):
+    db = True if db == 'prod' else False
     
+    if insert_data is None:
+        query = f"select tb1.nr_documento, tb1.identificacao, tb1.tipo_doct, tb2.cod_cliente, tb2.apelido_uc, tb2.endereco, tb2.gru_mod, tb2.cons_efp, tb2.valor_fatura, tb2.url_fatura, tb1.created_at from public.doct_cliente as tb1 left join public.dados_uc as tb2 on tb1.nr_documento = tb2.nr_documento where tb1.nr_documento LIKE '%{nr_documento}%';"
+    else:
+        query = f"select tb1.nr_documento, tb1.identificacao, tb1.tipo_doct, tb2.cod_cliente, tb2.apelido_uc, tb2.endereco, tb2.gru_mod, tb2.cons_efp, tb2.valor_fatura, tb2.url_fatura, tb1.created_at from public.doct_cliente as tb1 left join public.dados_uc as tb2 on tb1.nr_documento = tb2.nr_documento where tb1.id_prospect = '{insert_data}';"
+    tb_doct = pk.get_db("public", query, db)
+    nr_documento_tidy = pk.tidy_doct(tipo_doct, nr_documento)
+    if tb_doct.shape[0] > 0:
+        dt_criacao = str(tb_doct.created_at.iloc[-1])[:19]
+        if 'None' in str(list(tb_doct.apelido_uc.unique())):
+            documento = 'Documento existente mas sem unidade consumidora atrelada'
+            mensagem = f"O {tipo_doct} {nr_documento_tidy} já foi cadastrado no sistema em {dt_criacao}, mas não existem unidades consumidoras atreladas a este documento."
+            actions = {"1":"Finalizar solicitação", "2":f"Cadastrar pela primeira vez uma unidade consumidora atrelada ao documento {nr_documento_tidy}"}
+            return {"status_code":200, "status": documento, "mensagem":mensagem, "actions":actions, 'return_data':{'nr_documento':nr_documento}}
+        else:
+            documento = 'Documento existente com unidades já existentes'
+            mensagem = f"O {tipo_doct} {nr_documento_tidy} já foi cadastrado no sistema em {dt_criacao}. Veja a lista das unidades consumidoras atreladas a este documento."
+            actions = {"1":"Finalizar solicitação", "2":f"Cadastrar uma nova unidade consumidora atrelada ao documento {nr_documento_tidy}"}
+            return {"status_code":200, "status": documento, "mensagem":mensagem, "actions":actions, 'return_data':{'nr_documento':nr_documento, "dados_uc":tb_doct.to_dict(orient='records')}}
+    else:
+        # status_doct = valida_doct(nr_documento)
+        documento = "Novo documento solicitado para cadastro."
+        check_doct = pk.validate_document(nr_documento, tipo_doct)
+        if check_doct.get("valid"):
+            if tipo_doct == "CNPJ":
+                tidy_doct_nr = pk.tidy_doct(tipo_doct, check_doct.get("number"))
+                if check_doct.get('exists') == False:
+                    mensagem = "Esta é a primeira vez que o {} está sendo cadastrado no nosso sistema. O documento é valido mas não foi encontrato na base de dados da Receita Federal. Vamos verificar o que ocorreu mas a solicitação de cadastro permanece válida.".format(tidy_doct_nr)
+                    actions = {"1":"Finalizar solicitação", "2":"Seguir e cadastrar uma nova unidade consumidora atrelada ao documento {}".format(tidy_doct_nr)}
+                    return {"status_code":200, "status": documento, "mensagem":mensagem, "actions":actions, 'return_data':{'nr_documento':nr_documento}}
+                else:
+                    mensagem = "Esta é a primeira vez que o {} está sendo cadastrado no nosso sistema. O documento é valido encontramos todas as informações necessárias na base da Receita Federal.".format(tidy_doct_nr)
+                    actions = {"1":"Finalizar solicitação", "2":"Seguir e cadastrar uma nova unidade consumidora atrelada ao documento {}".format(tidy_doct_nr)}
+                    return {"status_code":200, "status": documento, "mensagem":mensagem, "actions":actions, 'return_data':check_doct.get('company_data')}
+            else:
+                mensagem = "Esta é a primeira vez que o {} está sendo cadastrado no nosso sistema. O documento é valido.".format(tidy_doct_nr)
+                actions = {"1":"Finalizar solicitação", "2":"Seguir e cadastrar uma nova unidade consumidora atrelada ao {} {}".format(tipo_doct, tidy_doct_nr)}
+                return {"status_code":200, "status": documento, "mensagem":mensagem, "actions":actions, 'return_data':{'nr_documento':nr_documento}}
+
+        else:
+            mensagem = "Você está tentando cadastrar o novo documento {} mas ele não é valido. Por favor confira as informações e insira um {} válido".format(tidy_doct_nr, tipo_doct)
+            actions = {"1":"Finalizar solicitação", "2":"Tentar novamente cadastrar o documento atrelado a fatura de energia"}
+            return {"status_code":200, "status": documento, "mensagem":mensagem, "actions":actions}
+
 def cadastro_uc(cep, valor_fatura, nr_documento = None, doct_file = None):
     #Parte 4: Conferir se os dados à serem inseridos na UC são novos ou não
     if nr_documento != None:
@@ -210,4 +265,13 @@ def cadastro_uc(cep, valor_fatura, nr_documento = None, doct_file = None):
         unidade = "Dado duplicado para mais de uma UC"
         mensagem = "Foi encontrada mais de uma unidade consumidora neste local com caracteristicas similares. Vamos ter que analisar este caso em particular e seu lider entratá em contrato com você em breve. Obrigado. "
         return {"status_code":400, "status": unidade, "mensagem":mensagem, "actions":actions, 'return_data':{"insert_data":{"cep":cep, "nr_documento":nr_documento, "valor_fatura":valor_fatura},"dados_uc":uc_v1.to_dict(orient='records')}}
-    
+
+
+def newLead_whats(return_data):
+    return pk.insert_newLead(id_agente = return_data['id_agente'], id_lider = return_data['id_lider'], canal = 'agentes whatsapp', nome = return_data['nome'], telefone = return_data['telefone'], email = return_data['email'], db = 'dev')
+
+# def newDoct_whats(return_data):
+#     return pk.newDoct_whats(id_agente = return_data['id_agente'], id_lider = return_data['id_lider'], canal = 'agentes whatsapp', nome = return_data['nome'], telefone = return_data['telefone'], email = return_data['email'], db = 'dev')
+
+# def newUC_whats(return_data):
+#     return pk.insert_newLead(id_agente = return_data['id_agente'], id_lider = return_data['id_lider'], canal = 'agentes whatsapp', nome = return_data['nome'], telefone = return_data['telefone'], email = return_data['email'], db = 'dev')
