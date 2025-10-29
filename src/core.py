@@ -163,7 +163,10 @@ def cadastro_lead(tel_agente, nome, telefone, email):
             
             mensagem = mensagem + "você está solicitando um novo lead válido para cadastro. O documento atrelado a conta de luz está em nome de uma pessoa física ou uma empresa? "
             #Só escreve novo lead aqui
-            return_data = {'id_agente':id_agente, 'id_lider':id_lider, 'nome':nome, 'telefone':telefone, 'email':email}
+            if email is None:
+                return_data = {'id_agente':id_agente, 'id_lider':id_lider, 'nome':nome, 'telefone':telefone}
+            else:
+                return_data = {'id_agente':id_agente, 'id_lider':id_lider, 'nome':nome, 'telefone':telefone, 'email':email}
             try:
                 print("Tentando escrever novo lead")
                 return_insertion = newLead_whats(return_data)
