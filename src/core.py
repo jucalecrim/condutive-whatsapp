@@ -299,10 +299,11 @@ def newLead_whats(return_data):
     db = 'dev'
     canal = 'agentes whatsapp'
     
-    if return_data['email'] is None:
-        return pk.insert_newLead(id_agente = return_data['id_agente'], id_lider = return_data['id_lider'], canal = canal, nome = return_data['nome'], telefone = return_data['telefone'], db = db)
+    if 'email' in list(return_data.keys()):
+        return pk.insert_newLead(id_agente = return_data['id_agente'], id_lider = return_data['id_lider'], canal = canal, nome = return_data['nome'], telefone = return_data['telefone'], email = return_data['email'], db = db)        
     else:
-        return pk.insert_newLead(id_agente = return_data['id_agente'], id_lider = return_data['id_lider'], canal = canal, nome = return_data['nome'], telefone = return_data['telefone'], email = return_data['email'], db = db)
+        return pk.insert_newLead(id_agente = return_data['id_agente'], id_lider = return_data['id_lider'], canal = canal, nome = return_data['nome'], telefone = return_data['telefone'], email = None, db = db)
+        
 
 def newDoct_whats(return_data):
     tipo_doct = return_data['tipo_doct']
