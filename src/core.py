@@ -194,7 +194,7 @@ def cadastro_doct(tipo_doct, nr_documento, id_prospect, db = 'dev'):
     return_data = {"tipo_doct":tipo_doct, "nr_documento":nr_documento, "id_prospect":id_prospect, "db":db}
     insert_query = f"INSERT INTO public.doct_cliente (tipo_doct, nr_documento, id_prospect) VALUES ('{tipo_doct}', '{nr_documento}', '{id_prospect}'); "
 
-    query = f"select tb1.nr_documento, tb1.identificacao, tb1.tipo_doct, tb2.cod_cliente, tb2.apelido_uc, tb2.endereco, tb2.gru_mod, tb2.cons_efp, tb2.valor_fatura, tb2.url_fatura, tb1.created_at from public.doct_cliente as tb1 left join public.dados_uc as tb2 on tb1.nr_documento = tb2.nr_documento where tb1.id_prospect = '{id_prospect}';"
+    query = f"select tb1.nr_documento, tb1.identificacao, tb1.tipo_doct, tb2.cod_cliente, tb2.apelido_uc, tb2.endereco, tb2.gru_mod, tb2.cons_efp, tb2.valor_fatura, tb2.url_fatura, tb1.created_at from public.doct_cliente as tb1 left join public.dados_uc as tb2 on tb1.nr_documento = tb2.nr_documento where tb1.id_prospect = '{id_prospect}' AND tb1.nr_documento = '{nr_documento}';"
     
     tb_doct = pk.get_db("public", query, db)
     tidy_doct_nr = pk.tidy_doct(tipo_doct, nr_documento)
@@ -239,7 +239,7 @@ def cadastro_doct(tipo_doct, nr_documento, id_prospect, db = 'dev'):
                         key_loop.append(n)
                         values_string.append(company_data.get(n))
                         
-                    keys_string = pk.trata_lista_query(list(company_data.keys()))
+                    keys_string = pk.trata_lista_query(key_loop)
                     keys_string_tidy = keys_string.replace("'", '"')
                     values_string_tidy = pk.trata_lista_query(values_string)
                     del insert_query
@@ -257,6 +257,7 @@ def cadastro_doct(tipo_doct, nr_documento, id_prospect, db = 'dev'):
                 documento = documento + " Escrita do novo documento no DB ok!"
                 status_code = 201
             else:
+                documento = documento + " Erro ao escrever novo documento no DB: "  + write_return['message']
                 status_code = 400
                 
             return {"status_code": status_code, "status": documento, "mensagem":mensagem, "actions":actions, 'return_data':return_data}
