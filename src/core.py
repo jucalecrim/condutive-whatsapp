@@ -226,7 +226,10 @@ def cadastro_doct(tipo_doct, nr_documento, id_prospect, db = 'dev'):
                     #Aqui é mar azul tudo lindo pode escrever a porra toda no banco
                     mensagem = "Esta é a primeira vez que o {} está sendo cadastrado no nosso sistema. O documento é valido encontramos todas as informações necessárias na base da Receita Federal.".format(tidy_doct_nr)
                     actions = {"1":"Finalizar solicitação", "2":"Seguir e cadastrar uma nova unidade consumidora atrelada ao documento {}".format(tidy_doct_nr)}
-                    return_data['companyData'] = check_doct.get('company_data')
+                    company_data = check_doct.get('company_data')
+                    del company_data['cep']
+                    del company_data['endereco']
+                    return_data['companyData'] = company_data
 
             else:
                 #Aqui escreve mas é CPF então n tem nada pra escrever junto, só o doct mesmo e pela primeira vez
@@ -305,13 +308,9 @@ def newDoct_whats(return_data):
     db = return_data['db']
     
     if 'companyData' in list(return_data.keys()):
-        companyData = return_data['companyData']
-        del return_data['companyData']
-        for n in companyData.keys():
-            return_data[n] = companyData.get(n)
-        return pk.insert_newDoct(tipo_doct, nr_documento, id_prospect, db, companyData)
+        return pk.insert_newDoct(tipo_doct, nr_documento, id_prospect, db, return_data['companyData'])
     else:
-        return pk.insert_newDoct(tipo_doct, nr_documento, id_prospect, db)
+        return pk.insert_newDoct(tipo_doct, nr_documento, id_prospect, db, None)
 
 # def newUC_whats(return_data):
 #     return pk.insert_newLead(id_agente = return_data['id_agente'], id_lider = return_data['id_lider'], canal = 'agentes whatsapp', nome = return_data['nome'], telefone = return_data['telefone'], email = return_data['email'], db = 'dev')
