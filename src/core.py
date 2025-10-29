@@ -191,9 +191,8 @@ def cadastro_doct(tipo_doct, nr_documento, id_prospect, db = 'dev'):
     db = True if db == 'prod' else False
     
     return_data = {"tipo_doct":tipo_doct, "nr_documento":nr_documento, "id_prospect":id_prospect, "db":db}
-    # if insert_data == None:
-    #     query = f"select tb1.nr_documento, tb1.identificacao, tb1.tipo_doct, tb2.cod_cliente, tb2.apelido_uc, tb2.endereco, tb2.gru_mod, tb2.cons_efp, tb2.valor_fatura, tb2.url_fatura, tb1.created_at from public.doct_cliente as tb1 left join public.dados_uc as tb2 on tb1.nr_documento = tb2.nr_documento where tb1.nr_documento LIKE '%{nr_documento}%';"
-    # else:
+    insert_query = f"INSERT INTO public.doct_cliente (tipo_doct, nr_documento, id_prospect) VALUES ('{tipo_doct}', '{nr_documento}', '{id_prospect}'); "
+
     query = f"select tb1.nr_documento, tb1.identificacao, tb1.tipo_doct, tb2.cod_cliente, tb2.apelido_uc, tb2.endereco, tb2.gru_mod, tb2.cons_efp, tb2.valor_fatura, tb2.url_fatura, tb1.created_at from public.doct_cliente as tb1 left join public.dados_uc as tb2 on tb1.nr_documento = tb2.nr_documento where tb1.id_prospect = '{id_prospect}';"
     
     tb_doct = pk.get_db("public", query, db)
@@ -232,14 +231,27 @@ def cadastro_doct(tipo_doct, nr_documento, id_prospect, db = 'dev'):
                     company_data = check_doct.get('company_data')
                     del company_data['cep']
                     del company_data['endereco']
-                    return_data['companyData'] = company_data
+                    
+                    key_loop = ["tipo_doct", "id_prospect"]
+                    values_string = [tipo_doct, id_prospect]
+                    for n in company_data.keys():
+                        key_loop.append(n)
+                        values_string.append(company_data.get(n))
+                        
+                    keys_string = pk.trata_lista_query(list(company_data.keys()))
+                    keys_string_tidy = keys_string.replace("'", '"')
+                    values_string_tidy = pk.trata_lista_query(values_string)
+                    del insert_query
+                    insert_query = f"INSERT INTO public.doct_cliente {keys_string_tidy} VALUES {values_string_tidy};"
 
+                    return_data['companyData'] = company_data
+                   
             else:
                 #Aqui escreve mas é CPF então n tem nada pra escrever junto, só o doct mesmo e pela primeira vez
                 mensagem = "Esta é a primeira vez que o {} está sendo cadastrado no nosso sistema. O documento é valido.".format(tidy_doct_nr)
                 actions = {"1":"Finalizar solicitação", "2":"Seguir e cadastrar uma nova unidade consumidora atrelada ao {} {}".format(tipo_doct, tidy_doct_nr)}
         
-            write_return = newDoct_whats(return_data)
+            write_return = pk.insert_newDoct(insert_query, db)
             if write_return['status_code'] == 201:
                 documento = documento + " Escrita do novo documento no DB ok!"
                 status_code = 201
@@ -305,16 +317,6 @@ def newLead_whats(return_data):
         return pk.insert_newLead(id_agente = return_data['id_agente'], id_lider = return_data['id_lider'], canal = canal, nome = return_data['nome'], telefone = return_data['telefone'], email = None, db = db)
         
 
-def newDoct_whats(return_data):
-    tipo_doct = return_data['tipo_doct']
-    nr_documento = return_data['nr_documento']
-    id_prospect = return_data['id_prospect']
-    db = return_data['db']
-    
-    if 'companyData' in list(return_data.keys()):
-        return pk.insert_newDoct(tipo_doct, nr_documento, id_prospect, db, return_data['companyData'])
-    else:
-        return pk.insert_newDoct(tipo_doct, nr_documento, id_prospect, db, None)
 
 # def newUC_whats(return_data):
 #     return pk.insert_newLead(id_agente = return_data['id_agente'], id_lider = return_data['id_lider'], canal = 'agentes whatsapp', nome = return_data['nome'], telefone = return_data['telefone'], email = return_data['email'], db = 'dev')
