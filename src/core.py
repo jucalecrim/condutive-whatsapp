@@ -167,10 +167,11 @@ def cadastro_lead(tel_agente, nome, telefone, email):
                 return_data = {'id_agente':id_agente, 'id_lider':id_lider, 'nome':nome, 'telefone':telefone}
             else:
                 return_data = {'id_agente':id_agente, 'id_lider':id_lider, 'nome':nome, 'telefone':telefone, 'email':email}
+                
             try:
                 print("Tentando escrever novo lead")
                 return_insertion = newLead_whats(return_data)
-                if return_insertion['status_code'] == 200:
+                if return_insertion['status_code'] == 201:
                     return_data['id_prospect'] = return_insertion['id_prospect']
                 status_code = 200
                 print(return_insertion)
