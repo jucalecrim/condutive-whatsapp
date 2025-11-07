@@ -205,7 +205,7 @@ def cadastro_doct(tipo_doct, nr_documento, id_prospect, db = 'dev'):
     
     tb_doct = pk.get_db("public", query, db)
     tidy_doct_nr = pk.tidy_doct(tipo_doct, nr_documento)
-    status_code = 200
+
     if tb_doct.shape[0] > 0:
         dt_criacao = str(tb_doct.created_at.iloc[-1])[:19]
         if 'None' in str(list(tb_doct.apelido_uc.unique())):
@@ -213,14 +213,14 @@ def cadastro_doct(tipo_doct, nr_documento, id_prospect, db = 'dev'):
             documento = 'Documento existente mas sem unidade consumidora atrelada'
             mensagem = f"O {tipo_doct} {tidy_doct_nr} já foi cadastrado no sistema em {dt_criacao}, e não existem unidades consumidoras atreladas a este documento."
             actions = {"1":"Finalizar solicitação", "2":f"Cadastrar pela primeira vez uma unidade consumidora atrelada ao documento {tidy_doct_nr}"}
-            return {"status_code": status_code, "status": documento, "mensagem":mensagem, "actions":actions, 'return_data':return_data}
+            return {"status_code": 204, "status": documento, "mensagem":mensagem, "actions":actions, 'return_data':return_data}
         else:
             #Não faz nada, só avisa que é um CNPJ que já tem UCs cadastradas nele e deixa seguir
             documento = 'Documento existente com unidades já existentes'
             mensagem = f"O {tipo_doct} {tidy_doct_nr} já foi cadastrado no sistema em {dt_criacao}. Veja a lista das unidades consumidoras atreladas a este documento."
             actions = {"1":"Finalizar solicitação", "2":f"Cadastrar uma nova unidade consumidora atrelada ao documento {tidy_doct_nr}"}
             return_data['dados_uc'] = tb_doct.to_dict(orient='records')
-            return {"status_code": status_code, "status": documento, "mensagem":mensagem, "actions":actions, 'return_data':return_data}
+            return {"status_code": 207, "status": documento, "mensagem":mensagem, "actions":actions, 'return_data':return_data}
     else:
         # status_doct = valida_doct(nr_documento)
         documento = "Novo documento solicitado para cadastro."
@@ -229,11 +229,13 @@ def cadastro_doct(tipo_doct, nr_documento, id_prospect, db = 'dev'):
             if tipo_doct == "CNPJ":
                 tidy_doct_nr = pk.tidy_doct(tipo_doct, check_doct.get("number"))
                 if check_doct.get('exists') == False:
+                    status_code = 206
                     #Deixar seguir mas não encontramos na RFB então ou escreve parcialmente ou nem escreve
                     mensagem = "Esta é a primeira vez que o {} está sendo cadastrado no nosso sistema. O documento é valido mas não foi encontrato na base de dados da Receita Federal. Vamos verificar o que ocorreu mas a solicitação de cadastro permanece válida.".format(tidy_doct_nr)
                     actions = {"1":"Finalizar solicitação", "2":"Seguir e cadastrar uma nova unidade consumidora atrelada ao documento {}".format(tidy_doct_nr)}
                 else:
                     #Aqui é mar azul tudo lindo pode escrever a porra toda no banco
+                    status_code = 200
                     mensagem = "Esta é a primeira vez que o {} está sendo cadastrado no nosso sistema. O documento é valido encontramos todas as informações necessárias na base da Receita Federal.".format(tidy_doct_nr)
                     actions = {"1":"Finalizar solicitação", "2":"Seguir e cadastrar uma nova unidade consumidora atrelada ao documento {}".format(tidy_doct_nr)}
                     company_data = check_doct.get('company_data')
@@ -261,11 +263,14 @@ def cadastro_doct(tipo_doct, nr_documento, id_prospect, db = 'dev'):
         
             write_return = pk.insert_newDoct(insert_query, db)
             if write_return['status_code'] == 201:
-                documento = documento + " Escrita do novo documento no DB ok!"
-                status_code = 201
+                if status_code == 206:
+                    documento = documento + " Escrita do novo documento no DB, mas não encontrado na RFB"
+                else:
+                    documento = documento + " Escrita do novo documento no DB ok!"
+                    status_code = write_return['status_code']
             else:
                 documento = documento + " Erro ao escrever novo documento no DB: "  + write_return['message']
-                status_code = 400
+                status_code = 417
                 
             return {"status_code": status_code, "status": documento, "mensagem":mensagem, "actions":actions, 'return_data':return_data}
 
