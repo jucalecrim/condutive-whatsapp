@@ -128,9 +128,12 @@ def cadastro_lead(tel_agente, nome, telefone, email):
             if tb_prospect['nome'].iloc[0] == nome:
                 dados_duplicados = dados_duplicados + f"{nome} já foi cadastrado anteriormente, "
             if tb_prospect['telefone'].iloc[0] == telefone:
-                dados_duplicados = dados_duplicados + f"o telefone inserido: {telefone} já cadastrado na nossa base de dados, "
+                dados_duplicados = dados_duplicados + f"o telefone inserido: {telefone} já foi cadastrado na nossa base de dados, "
             if tb_prospect['email'].iloc[0] == email:
-                dados_duplicados =  dados_duplicados + f"o email informado: {email} já foi inserido previamente, "
+                if email is None:
+                    pass
+                else:
+                    dados_duplicados =  dados_duplicados + f"o email informado: {email} já foi inserido previamente, "
                 
             if dados_duplicados != "":
                 mensagem = mensagem + dados_duplicados[:len(dados_duplicados)-2]
@@ -140,11 +143,13 @@ def cadastro_lead(tel_agente, nome, telefone, email):
                 prospect =  "Lead já cadastrado anteriormente por outro agente"
                 mensagem = mensagem + " o lead que você informou já foi inserido por outro agente previamente. Por favor entre em contato com seu líder {}".format(nome_lider)
                 actions = {"1":"Finalizar solicitação"}
+                status_code = 403
             elif tb_prospect.shape[0] > 1:
                 #Cadastrado por mais de um agente
                 prospect =  "Lead já cadastrado anteriormente e por mais de um agente"
                 mensagem = mensagem + " o lead que você está tentando cadastrar já foi cadastrado por mais de um agente anteriormente. Por favor entre em contato com seu líder {}".format(nome_lider)
                 actions = {"1":"Finalizar solicitação"}
+                status_code = 403
             else:
                 #Cadastrado por ele mesmo anteriormente
                 prospect =  "Lead já cadastrado anteriormente"
@@ -154,10 +159,12 @@ def cadastro_lead(tel_agente, nome, telefone, email):
                 actions = {"1":"Finalizar solicitação", "2":"Cadastrar uma nova unidade consumidora para este mesmo lead"}
                 if dados_uc.shape[0] > 0:
                     mensagem = mensagem + " por você no dia "+ str(tb_prospect.created_at.iloc[0])[:19] + ". Veja abaixo a lista das unidades consumidoras atreladas a este lead."
-                    return {"status_code":200, "status": prospect, "mensagem":mensagem, "actions":actions, "return_data":{"id_prospect":id_prospect, "dados_uc":dados_uc.to_dict(orient='records')}}
+                    #Status code of data duplicated
+                    return {"status_code":208, "status": prospect, "mensagem":mensagem, "actions":actions, "return_data":{"id_prospect":id_prospect, "dados_uc":dados_uc.to_dict(orient='records')}}
                 else:
                     mensagem = mensagem + " por você no dia "+ str(tb_prospect.created_at.iloc[0])[:19] + ", porém ainda não existem unidades consumidoras atreladas a este lead."
-                    return {"status_code":200, "status": prospect, "mensagem":mensagem, "actions":actions, "return_data":{"id_prospect":id_prospect}}
+                    #Status code of data duplicated but no uc
+                    return {"status_code":206, "status": prospect, "mensagem":mensagem, "actions":actions, "return_data":{"id_prospect":id_prospect}}
         else:
             #Novo cadastro de lead
             
@@ -173,15 +180,15 @@ def cadastro_lead(tel_agente, nome, telefone, email):
                 return_insertion = newLead_whats(return_data)
                 if return_insertion['status_code'] == 201:
                     return_data['id_prospect'] = return_insertion['id_prospect']
-                status_code = 200
+                    status_code = 201
                 print(return_insertion)
                 prospect = "Novo lead solicitado para cadastro e inserido na base"
             except Exception as e:
                 print("Não consegui escrever na base de dados este novo lead")
                 prospect = f"Novo lead solicitado para cadastro porém com erro ao escrever no banco de dados: {e}"
-                status_code = 409
+                status_code = 417
             
-            return {"status_code":200, "status": prospect, "mensagem":mensagem, "actions":{"1":"PF", "2":"PJ"}, 'return_data':return_data}
+            return {"status_code":status_code, "status": prospect, "mensagem":mensagem, "actions":{"1":"PF", "2":"PJ"}, 'return_data':return_data}
             
         return {"status_code":status_code, "status": prospect, "mensagem":mensagem, "actions":actions}
 

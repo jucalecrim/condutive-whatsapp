@@ -30,7 +30,7 @@ def route_ucs_problema(tel: int):
     return ucs_problema(tel)
 
 
-@app.get("/cadastro_lead")
+@app.post("/cadastro_lead")
 def route_new_lead(
         tel_agente: int = Query(...),
         nome: str = Query(...),
@@ -56,7 +56,7 @@ def route_new_lead(
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
         
-@app.get("/cadastro_doct")
+@app.post("/cadastro_doct")
 def route_new_doct(       
         tipo_doct: str = Query(...),
         nr_documento: str = Query(...),
