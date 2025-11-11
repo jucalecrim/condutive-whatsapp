@@ -79,3 +79,27 @@ def route_new_doct(
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/find_disco")
+def find_disco(cep:str):
+    full_data = pk.check_cep(cep)
+    if full_data['exists'] == False:
+        return full_data
+    else:
+        return pk.guess_disco(city = full_data['cidade'], uf = ['uf'])
+    
+@app.post("/cadastro_uc")
+def route_new_uc(       
+        nr_documento: str = Query(...),
+        id_prospect: int = Query(...),
+        cod_agente: int = Query(...),
+        cep: str = Query(...),
+        valor_fatura: int = Query(...),
+        url_doct: str = Query(...)
+):
+    try:
+        valor_fatura = float(valor_fatura)
+        return cadastro_uc(tipo_doct, nr_documento, id_prospect)
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

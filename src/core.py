@@ -280,7 +280,8 @@ def cadastro_doct(tipo_doct, nr_documento, id_prospect, db = 'dev'):
             actions = {"1":"Finalizar solicitação", "2":"Tentar novamente cadastrar o documento atrelado a fatura de energia"}
             return {"status_code": 406, "status": documento, "mensagem":mensagem, "actions":actions}
 
-def cadastro_uc(cep, valor_fatura, nr_documento = None, doct_file = None):
+# def cadastro_uc(cep, valor_fatura, nr_documento = None, doct_file = None):
+def cadastro_uc(nr_documento, id_prospect, cod_agente, cep, valor_fatura, url_doct, db = 'dev'):
     #Parte 4: Conferir se os dados à serem inseridos na UC são novos ou não
     if nr_documento != None:
         query = f"SELECT * FROM public.dados_uc WHERE nr_documento = '{nr_documento}' AND (cep = '{cep}' OR valor_fatura = '{valor_fatura}');"
@@ -330,7 +331,5 @@ def newLead_whats(return_data):
     else:
         return pk.insert_newLead(id_agente = return_data['id_agente'], id_lider = return_data['id_lider'], canal = canal, nome = return_data['nome'], telefone = return_data['telefone'], email = None, db = db)
         
-
-
 # def newUC_whats(return_data):
 #     return pk.insert_newLead(id_agente = return_data['id_agente'], id_lider = return_data['id_lider'], canal = 'agentes whatsapp', nome = return_data['nome'], telefone = return_data['telefone'], email = return_data['email'], db = 'dev')
