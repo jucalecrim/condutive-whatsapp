@@ -4,8 +4,12 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from typing import Optional
 import pacote_back_condutive as pk
 from src.core import *
+from pydantic import BaseModel
 
 app = FastAPI()
+
+class DocumentInput(BaseModel):
+    url: str
 
 @app.get("/", response_class=HTMLResponse)
 def read_root():
@@ -90,6 +94,11 @@ def find_disco(cep:str):
         return_disco = pk.guess_disco(city = full_data['cidade'], uf = full_data['uf'])
         return_disco['endereco_par'] = full_data.get('logradouro') +  ", " + full_data.get('bairro') + ", " + full_data.get('cidade') + " - " + full_data.get('uf') + " - CEP: " + cep
         return return_disco
+    
+
+@app.post("/check_url")
+def check_document(doc: DocumentInput):
+    return url_check(doc)
     
 @app.post("/cadastro_uc")
 def route_new_uc(       

@@ -7,6 +7,105 @@ import pandas as pd
 # from validate_docbr import CPF, CNPJ
 import pacote_back_condutive as pk
 
+def url_check(doc):
+    
+    import requests
+    import io
+    from pathlib import Path
+    import fitz  # PyMuPDF
+    from docx import Document
+    import gc
+    url = doc.url
+    # url = doc
+    content = None
+    pdf = None
+    docx = None
+
+    try:
+        # Step 1 — Download directly to memory
+        response = requests.get(url, timeout=15)
+
+        if response.status_code != 200:
+            raise {"status_code":400, "detail":"File not reachable or invalid URL"}
+
+        # Prepare in-memory stream
+        content = io.BytesIO(response.content)
+        suffix = Path(url).suffix.lower()
+        readable = False
+        message = "Unknown file type"
+        preview_text = ""
+
+        # Step 2 — Parse based on file type
+        if suffix == ".pdf":
+            try:
+                pdf = fitz.open(stream=content, filetype="pdf")
+                text = ""
+                for page in pdf:
+                    text += page.get_text("text")
+                    if len(text) > 4000:
+                        break
+                if text.strip():
+                    readable = True
+                    preview_text = text[:4000]
+                    message = f"PDF parsed successfully ({pdf.page_count} pages)."
+                else:
+                    message = "PDF has no extractable text."
+            except Exception as e:
+                message = f"PDF parsing failed: {e}"
+
+        elif suffix == ".docx":
+            try:
+                docx = Document(content)
+                text = "\n".join(p.text for p in docx.paragraphs)
+                if text.strip():
+                    readable = True
+                    preview_text = text[:4000]
+                    message = f"DOCX parsed successfully ({len(docx.paragraphs)} paragraphs)."
+                else:
+                    message = "DOCX has no readable text."
+            except Exception as e:
+                message = f"DOCX parsing failed: {e}"
+
+        elif suffix in [".txt", ".csv"]:
+            try:
+                text = response.content.decode(errors="ignore")
+                if text.strip():
+                    readable = True
+                    preview_text = text[:4000]
+                    message = "Text file read successfully."
+                else:
+                    message = "Text file empty or unreadable."
+            except Exception as e:
+                message = f"Text parsing failed: {e}"
+
+        else:
+            message = f"Unsupported file type: {suffix}"
+
+        return {
+            "readable": readable,
+            "message": message,
+            "preview_text": preview_text if readable else None
+        }
+
+    except Exception as e:
+        raise {"status_code":400, "detail":str(e)}
+
+    finally:
+        # Step 3 — Ensure memory is cleared
+        try:
+            if pdf:
+                pdf.close()
+            if docx:
+                del docx
+            if content:
+                content.close()
+                del content
+            del response
+            gc.collect()  # Force garbage collection
+        except Exception:
+            pass
+
+
 def stauts_ucs(tel):
     check1 = pk.check_agent_tel(tel)
     if check1['status_code'] == 200:
@@ -279,6 +378,8 @@ def cadastro_doct(tipo_doct, nr_documento, id_prospect, db = 'dev'):
             mensagem = "Você está tentando cadastrar o novo documento {} mas ele não é valido. Por favor confira as informações e insira um {} válido".format(tidy_doct_nr, tipo_doct)
             actions = {"1":"Finalizar solicitação", "2":"Tentar novamente cadastrar o documento atrelado a fatura de energia"}
             return {"status_code": 406, "status": documento, "mensagem":mensagem, "actions":actions}
+
+
 
 # def cadastro_uc(cep, valor_fatura, nr_documento = None, doct_file = None):
 def cadastro_uc(dicty_initial, url_doct, db = 'dev'):
