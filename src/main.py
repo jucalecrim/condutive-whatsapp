@@ -83,10 +83,13 @@ def route_new_doct(
 @app.get("/find_disco")
 def find_disco(cep:str):
     full_data = pk.check_cep(cep)
+    print(full_data)
     if full_data['exists'] == False:
         return full_data
     else:
-        return pk.guess_disco(city = full_data['cidade'], uf = ['uf'])
+        return_disco = pk.guess_disco(city = full_data['cidade'], uf = full_data['uf'])
+        return_disco['endereco_par'] = full_data.get('logradouro') +  ", " + full_data.get('bairro') + ", " + full_data.get('cidade') + " - " + full_data.get('uf') + " - CEP: " + cep
+        return return_disco
     
 @app.post("/cadastro_uc")
 def route_new_uc(       
@@ -94,12 +97,18 @@ def route_new_uc(
         id_prospect: int = Query(...),
         cod_agente: int = Query(...),
         cep: str = Query(...),
+        endereco_par: str = Query(...),
         valor_fatura: int = Query(...),
         url_doct: str = Query(...)
 ):
     try:
-        valor_fatura = float(valor_fatura)
-        return cadastro_uc(tipo_doct, nr_documento, id_prospect)
+        dicty_initial = {'nr_documento':nr_documento, 
+                         'id_prospect':id_prospect, 
+                         'cod_agente': cod_agente, 
+                         'cep': cep,
+                         'endereco':endereco_par, 
+                         'valor_fatura': float(valor_fatura)}
+        return cadastro_uc(dicty_initial, url_doct)
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

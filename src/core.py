@@ -103,8 +103,8 @@ def ucs_problema(tel):
         dict_return = {"status_code":400, 'response':str(e)}
         return dict_return
 
-def cadastro_lead(tel_agente, nome, telefone, email):
-
+def cadastro_lead(tel_agente, nome, telefone, email, db = 'dev'):
+    db = True if db == 'prod' else False
     #Parte 1: Checkar id do agente
     check1 = pk.check_agent_tel(tel_agente)
     if check1['status_code'] != 200:
@@ -120,7 +120,7 @@ def cadastro_lead(tel_agente, nome, telefone, email):
             query1 = f"SELECT id as id_prospect, nome, telefone, email, id_agente, created_at FROM public.prospect WHERE nome LIKE '%{nome}%' OR telefone = {telefone};"
         else:
             query1 = f"SELECT id as id_prospect, nome, telefone, email, id_agente, created_at FROM public.prospect WHERE nome LIKE '%{nome}%' OR telefone = {telefone} OR email = '{email}';"
-        tb_prospect = pk.get_db("public", query1, False)
+        tb_prospect = pk.get_db("public", query1, db)
         
         dados_duplicados = ""
         if tb_prospect.shape[0] > 0:
@@ -155,7 +155,7 @@ def cadastro_lead(tel_agente, nome, telefone, email):
                 prospect =  "Lead já cadastrado anteriormente"
                 id_prospect = int(tb_prospect.id_prospect.iloc[-1])
                 query = f'select cod_cliente, nr_documento, endereco, gru_mod, cons_efp, valor_fatura, url_fatura, created_at  from public.dados_uc where nr_documento in (select nr_documento from public.doct_cliente where id_prospect = {id_prospect});'
-                dados_uc = pk.get_db('public', query, False)
+                dados_uc = pk.get_db('public', query, db)
                 actions = {"1":"Finalizar solicitação", "2":"Cadastrar uma nova unidade consumidora para este mesmo lead"}
                 if dados_uc.shape[0] > 0:
                     mensagem = mensagem + " por você no dia "+ str(tb_prospect.created_at.iloc[0])[:19] + ". Veja abaixo a lista das unidades consumidoras atreladas a este lead."
@@ -177,7 +177,7 @@ def cadastro_lead(tel_agente, nome, telefone, email):
                 
             try:
                 print("Tentando escrever novo lead")
-                return_insertion = newLead_whats(return_data)
+                return_insertion = newLead_whats(return_data, db)
                 if return_insertion['status_code'] == 201:
                     return_data['id_prospect'] = return_insertion['id_prospect']
                     status_code = 201
@@ -281,13 +281,13 @@ def cadastro_doct(tipo_doct, nr_documento, id_prospect, db = 'dev'):
             return {"status_code": 406, "status": documento, "mensagem":mensagem, "actions":actions}
 
 # def cadastro_uc(cep, valor_fatura, nr_documento = None, doct_file = None):
-def cadastro_uc(nr_documento, id_prospect, cod_agente, cep, valor_fatura, url_doct, db = 'dev'):
+def cadastro_uc(dicty_initial, url_doct, db = 'dev'):
+    db = True if db == 'prod' else False
+    
     #Parte 4: Conferir se os dados à serem inseridos na UC são novos ou não
-    if nr_documento != None:
-        query = f"SELECT * FROM public.dados_uc WHERE nr_documento = '{nr_documento}' AND (cep = '{cep}' OR valor_fatura = '{valor_fatura}');"
-    else:
-        query = f"SELECT * FROM public.dados_uc WHERE valor_fatura = '{valor_fatura}' AND cep = '{cep}';"
-    uc_v1 = pk.get_db("public", query, False)
+    query = "SELECT * FROM public.dados_uc WHERE nr_documento = '{nr_documento}' AND cod_agente = '{cod_agente}' AND (cep = '{cep}' OR valor_fatura = '{valor_fatura}');"
+    uc_v1 = pk.get_db("public", query.format(**dicty_initial), db)
+    
     actions = {"1":"Finalizar solicitação"}
     
     if uc_v1.shape[0] == 0:
@@ -322,8 +322,7 @@ def cadastro_uc(nr_documento, id_prospect, cod_agente, cep, valor_fatura, url_do
         return {"status_code":400, "status": unidade, "mensagem":mensagem, "actions":actions, 'return_data':{"insert_data":{"cep":cep, "nr_documento":nr_documento, "valor_fatura":valor_fatura},"dados_uc":uc_v1.to_dict(orient='records')}}
 
 
-def newLead_whats(return_data):
-    db = 'dev'
+def newLead_whats(return_data, db):
     canal = 'agentes whatsapp'
     
     if 'email' in list(return_data.keys()):
