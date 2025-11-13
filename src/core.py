@@ -1,10 +1,4 @@
 import pandas as pd
-# import datetime as dt
-# import numpy as np
-# import re
-# import random
-# import requests
-# from validate_docbr import CPF, CNPJ
 import pacote_back_condutive as pk
 
 def url_check(doc):
@@ -105,7 +99,9 @@ def url_check(doc):
         except Exception:
             pass
 
-
+def trata_dados_4docs():
+    print("oi")
+    
 def stauts_ucs(tel):
     check1 = pk.check_agent_tel(tel)
     if check1['status_code'] == 200:
@@ -380,7 +376,6 @@ def cadastro_doct(tipo_doct, nr_documento, id_prospect, db = 'dev'):
             return {"status_code": 406, "status": documento, "mensagem":mensagem, "actions":actions}
 
 
-
 # def cadastro_uc(cep, valor_fatura, nr_documento = None, doct_file = None):
 def cadastro_uc(dicty_initial, url_doct, db = 'dev'):
     db = True if db == 'prod' else False
@@ -392,32 +387,40 @@ def cadastro_uc(dicty_initial, url_doct, db = 'dev'):
     actions = {"1":"Finalizar solicitação"}
     
     if uc_v1.shape[0] == 0:
-        return_cep = pk.check_cep(str(cep))
-        if return_cep.get('valid'):
-            actions['2'] = "Acessar sua área logada em agentes.condutive.com/auth"
-            if return_cep.get('exists'):
-                unidade = "Nova UC na base de dados com CEP válido e existente"
-                mensagem = "Parabens pelo cadastro desta nova unidade consumidora! O CEP e valor da conta informados estão validos. Por favor acompanhe sua unidade consumidora na sua área logada."
-                return {"status_code":200, "status": unidade, "mensagem":mensagem, "actions":actions}
-            else:
-                unidade = "Nova UC na base de dados com CEP válido mas não encontrado"
-                mensagem = "Vimos você quer cadastrar uma nova unidade consumidora. O CEP inserido parece ser válido mas não foi encontrado na base dos correios. Vamos analisar estes dados e seu líder entrará em contato sobre esta unidade em breve."
-                return {"status_code":200, "status": unidade, "mensagem":mensagem, "actions":actions}
-        else:
-            unidade = "Nova UC na base de dados com CEP inválido"
-            mensagem = f"O CEP {cep} da unidade consumidora que você está tentando cadastrar não é valido"
-            actions['2'] = "Enviar dados novamente"
-            return {"status_code":400, "status": unidade, "mensagem":mensagem, "actions":actions}
+        #Nova UC
+        ## Dados legiveis
+        #url_doct = {"url":uc_v1['url_fatura'].iloc[0]}
+        url_status = url_check(url_doct)
+        if url_status['readable'] == False:
+            status_leitura = "Erro ao tentar ler sua fatura de energia: {}".format(url_staus['message'])
             
-        #TODO: Ler dados da fatura e asumir premissas a partir de dados enviados
+        else:
+            #TODO bater aqui na API da 4docs
+            status_leitura = "Sucesso na leitura de dos dados da fatura"
+            
+            
+
+        ### Cadastrar UC com dados completos
+        #Cadastrar UC com dados incompletos e solicitar ida pra area logada
+
+        unidade = "Nova UC na base de dados com CEP inválido"
+        mensagem = f"O CEP {cep} da unidade consumidora que você está tentando cadastrar não é valido"
+        actions['2'] = "Enviar dados novamente"
+        return {"status_code":400, "status": unidade, "mensagem":mensagem, "actions":actions}
 
     elif uc_v1.shape[0] == 1:
+        #Dados existentes
+        ## Conferir se estão completos e aprovados
+        ## Voltar com comparador se tiver tudo ok
+        ## Explicar o que está faltando se tiver algum problema
+        
         unidade = "Dado dupliicado na base de dados, conferido via CEP e valor de fatura"
         apelido_uc = uc_v1['apelido_uc'].iloc[-1]
         mensagem = f"O dado inserido está duplicado na base de dados verificamos que a unidade {apelido_uc} registrada no CEP {cep} com o valor de R$ {valor_fatura}"
 
         return {"status_code":400, "status": unidade, "mensagem":mensagem, "actions":actions, 'return_data':{"insert_data":{"cep":cep, "nr_documento":nr_documento, "valor_fatura":valor_fatura},"dados_uc":uc_v1.to_dict(orient='records')}}
     else:
+        #Erro multiplos dados pra mesma UC, voltar com os dados pro consumidor
         unidade = "Dado duplicado para mais de uma UC"
         mensagem = "Foi encontrada mais de uma unidade consumidora neste local com caracteristicas similares. Vamos ter que analisar este caso em particular e seu lider entratá em contrato com você em breve. Obrigado. "
         return {"status_code":400, "status": unidade, "mensagem":mensagem, "actions":actions, 'return_data':{"insert_data":{"cep":cep, "nr_documento":nr_documento, "valor_fatura":valor_fatura},"dados_uc":uc_v1.to_dict(orient='records')}}
