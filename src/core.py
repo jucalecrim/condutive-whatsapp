@@ -1,107 +1,6 @@
 import pandas as pd
 import pacote_back_condutive as pk
 
-def url_check(doc):
-    
-    import requests
-    import io
-    from pathlib import Path
-    import fitz  # PyMuPDF
-    from docx import Document
-    import gc
-    url = doc.url
-    # url = doc
-    content = None
-    pdf = None
-    docx = None
-
-    try:
-        # Step 1 — Download directly to memory
-        response = requests.get(url, timeout=15)
-
-        if response.status_code != 200:
-            raise {"status_code":400, "detail":"File not reachable or invalid URL"}
-
-        # Prepare in-memory stream
-        content = io.BytesIO(response.content)
-        suffix = Path(url).suffix.lower()
-        readable = False
-        message = "Unknown file type"
-        preview_text = ""
-
-        # Step 2 — Parse based on file type
-        if suffix == ".pdf":
-            try:
-                pdf = fitz.open(stream=content, filetype="pdf")
-                text = ""
-                for page in pdf:
-                    text += page.get_text("text")
-                    if len(text) > 4000:
-                        break
-                if text.strip():
-                    readable = True
-                    preview_text = text[:4000]
-                    message = f"PDF parsed successfully ({pdf.page_count} pages)."
-                else:
-                    message = "PDF has no extractable text."
-            except Exception as e:
-                message = f"PDF parsing failed: {e}"
-
-        elif suffix == ".docx":
-            try:
-                docx = Document(content)
-                text = "\n".join(p.text for p in docx.paragraphs)
-                if text.strip():
-                    readable = True
-                    preview_text = text[:4000]
-                    message = f"DOCX parsed successfully ({len(docx.paragraphs)} paragraphs)."
-                else:
-                    message = "DOCX has no readable text."
-            except Exception as e:
-                message = f"DOCX parsing failed: {e}"
-
-        elif suffix in [".txt", ".csv"]:
-            try:
-                text = response.content.decode(errors="ignore")
-                if text.strip():
-                    readable = True
-                    preview_text = text[:4000]
-                    message = "Text file read successfully."
-                else:
-                    message = "Text file empty or unreadable."
-            except Exception as e:
-                message = f"Text parsing failed: {e}"
-
-        else:
-            message = f"Unsupported file type: {suffix}"
-
-        return {
-            "readable": readable,
-            "message": message,
-            "preview_text": preview_text if readable else None
-        }
-
-    except Exception as e:
-        raise {"status_code":400, "detail":str(e)}
-
-    finally:
-        # Step 3 — Ensure memory is cleared
-        try:
-            if pdf:
-                pdf.close()
-            if docx:
-                del docx
-            if content:
-                content.close()
-                del content
-            del response
-            gc.collect()  # Force garbage collection
-        except Exception:
-            pass
-
-def trata_dados_4docs():
-    print("oi")
-    
 def stauts_ucs(tel):
     check1 = pk.check_agent_tel(tel)
     if check1['status_code'] == 200:
@@ -385,45 +284,79 @@ def cadastro_uc(dicty_initial, url_doct, db = 'dev'):
     uc_v1 = pk.get_db("public", query.format(**dicty_initial), db)
     
     actions = {"1":"Finalizar solicitação"}
+    # apelido_uc, valor_fatura, cep, nr_documento = [uc_v1['apelido_uc'].iloc[-1], uc_v1['valor_fatura'].iloc[-1], uc_v1['cep'].iloc[-1], uc_v1['nr_documento'].iloc[-1]]
     
-    if uc_v1.shape[0] == 0:
-        #Nova UC
-        ## Dados legiveis
-        #url_doct = {"url":uc_v1['url_fatura'].iloc[0]}
-        url_status = url_check(url_doct)
+    if uc_v1.shape[0] < 2:
+        #Nova UC ou UC com dados existentes
+        #tomar cuidado e avisar se vai inserir dados ou atualiza-los
+        url_status = pk.url_check(url_doct)
         if url_status['readable'] == False:
-            status_leitura = "Erro ao tentar ler sua fatura de energia: {}".format(url_staus['message'])
+            status_leitura = "Erro ao tentar ler sua fatura de energia: {}".format(url_status['message'])
+            print(status_leitura)
+            status_code = 100
             
+            #Dados não legíveis, inserir dados enviados mas retornar dados de cautela. Não gerar comparador ainda
+            
+            # unidade = "Nova UC na base de dados com CEP inválido"
+            # mensagem = f"O CEP {cep} da unidade consumidora que você está tentando cadastrar não é valido"
+            # actions['2'] = "Enviar dados novamente"
+            # return {"status_code":400, "status": unidade, "mensagem":mensagem, "actions":actions}
+        
         else:
-            #TODO bater aqui na API da 4docs
-            status_leitura = "Sucesso na leitura de dos dados da fatura"
+
+            from pathlib import Path
+            if Path(url_doct).suffix.lower() == ".pdf":
+                #Aqui estamos solicitando a leitura do pdf na 4docs
+                retorno_extract = pk.solicita_extract_url(url_doct)
+                if retorno_extract['status_code'] != 200:
+                    #TODO melhorar esse retorno depois, sóda esse erro se a solicitação de leitura der errado
+                    return retorno_extract
+                else:
+                    #Aqui conferimos se deu certo a leitura da fatura e qual o status da extração
+                    return_callback = pk.callBack_fromId_4docs(request_id = retorno_extract['request_id'], credenciais = retorno_extract['credenciais'], url_doct = url_doct)
+                    if return_callback['status_code'] == 200:
+                        #Se deu bom a extração vamos inserir os dados tratados
+                        return_dadosInsert = pk.insert_dadosFatura(tidy_json=return_callback['return'], db=db)
+                        if return_dadosInsert['status_code'] == 201:
+                            print("conferir ou criar comparador e enviar o link")
+                            #TODO ainda não tem essa função de inserir ou criar comparador
+                            
+                    else:
+                        #TODO se caiu aqui deu algum erro inserindo os dados da UC no banco
+                        return return_callback
+
+            else:
+                #TODO fatura legivel mas dados não lidos na 4docs, vamos assumir alguns e inserir deles a partir da leitura normal e salvar no banco
+                
+                status_leitura = "Fatura legível, vamos prosseguir com a extração na 4 docs"
+                status_code = 200
             
-            
+            #envia fatura para leitura
+            #pega a fatura de volta
+            #trata e insere os dados
 
         ### Cadastrar UC com dados completos
         #Cadastrar UC com dados incompletos e solicitar ida pra area logada
 
-        unidade = "Nova UC na base de dados com CEP inválido"
-        mensagem = f"O CEP {cep} da unidade consumidora que você está tentando cadastrar não é valido"
-        actions['2'] = "Enviar dados novamente"
-        return {"status_code":400, "status": unidade, "mensagem":mensagem, "actions":actions}
-
-    elif uc_v1.shape[0] == 1:
-        #Dados existentes
-        ## Conferir se estão completos e aprovados
-        ## Voltar com comparador se tiver tudo ok
-        ## Explicar o que está faltando se tiver algum problema
+        if uc_v1.shape[0] == 1:
+            #Dados existentes
+            ## Conferir se estão completos e aprovados
+            ## Voltar com comparador se tiver tudo ok
+            ## Explicar o que está faltando se tiver algum problema
+            ## Atualizar se tiver dados faltantes
+            
+            unidade = "Dado dupliicado na base de dados, conferido via CEP e valor de fatura"
+            mensagem = f"O dado inserido está duplicado na base de dados verificamos que a unidade {apelido_uc} registrada no CEP {cep} com o valor de R$ {valor_fatura}"
         
-        unidade = "Dado dupliicado na base de dados, conferido via CEP e valor de fatura"
-        apelido_uc = uc_v1['apelido_uc'].iloc[-1]
-        mensagem = f"O dado inserido está duplicado na base de dados verificamos que a unidade {apelido_uc} registrada no CEP {cep} com o valor de R$ {valor_fatura}"
-
-        return {"status_code":400, "status": unidade, "mensagem":mensagem, "actions":actions, 'return_data':{"insert_data":{"cep":cep, "nr_documento":nr_documento, "valor_fatura":valor_fatura},"dados_uc":uc_v1.to_dict(orient='records')}}
+            return {"status_code":208, "status": unidade, "mensagem":mensagem, "actions":actions, 'return_data':{"insert_data":{"cep":cep, "nr_documento": nr_documento, "valor_fatura":valor_fatura},"dados_uc":uc_v1.to_dict(orient='records')}}
+        
+        #se der algum erro notificar o lider
     else:
         #Erro multiplos dados pra mesma UC, voltar com os dados pro consumidor
         unidade = "Dado duplicado para mais de uma UC"
         mensagem = "Foi encontrada mais de uma unidade consumidora neste local com caracteristicas similares. Vamos ter que analisar este caso em particular e seu lider entratá em contrato com você em breve. Obrigado. "
-        return {"status_code":400, "status": unidade, "mensagem":mensagem, "actions":actions, 'return_data':{"insert_data":{"cep":cep, "nr_documento":nr_documento, "valor_fatura":valor_fatura},"dados_uc":uc_v1.to_dict(orient='records')}}
+        #envar uma mensagem ao lider falando desta ocorrência
+        return {"status_code":409, "status": unidade, "mensagem":mensagem, "actions":actions, 'return_data':{"insert_data":{"cep":cep, "nr_documento":nr_documento, "valor_fatura":valor_fatura},"dados_uc":uc_v1.to_dict(orient='records')}}
 
 
 def newLead_whats(return_data, db):
