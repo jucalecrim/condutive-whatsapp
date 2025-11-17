@@ -14,6 +14,8 @@ app = FastAPI(title="Condutive WhatsApp API")
 # -----------------------------
 class DocumentInput(BaseModel):
     url: str
+    def solicita_extracao(PDF_URL: str, request_extraction: Optional[bool] = Query(False)):
+        return pk.solicita_extract_url(PDF_URL, request_extraction)
 
 class TipoDocumento(str, Enum):
     CPF = "CPF"
@@ -32,22 +34,32 @@ def read_root():
     </body>
     </html>
     """
+    
+@app.get("/check_telAgente", 
+         description = "Conferir se o telefone do Agente existe na base de dados ou não")
+def check_cel(tel: int):
+    return pk.check_agent_tel(tel)
 
 # -----------------------------
 # WhatsApp Flows
 # -----------------------------
-@app.get("/ver")
+@app.get("/ver", 
+         description = "Ver quais unidade consumidoras estão com o comparador disponível para uso")
 def route_ver_ucs(tel: int):
     return ver_ucs(tel)
 
-@app.get("/espera")
+@app.get("/espera",
+         description = "Ver quais unidade consumidoras estão aguardando comparador por alguma pendência")
 def route_ucs_problema(tel: int):
     return ucs_problema(tel)
 
 # -----------------------------
 # Cadastro de Lead
 # -----------------------------
-@app.post("/cadastro_lead")
+@app.post("/cadastro_lead", 
+          summary = "Envio de dados cadastraris de um Prospect/Lead", 
+          description = """ O Telefone do agente é utilizado para autenticação e conferir todas as informaçõe da base de dados.
+          Caso tenha mais de um dado de entrada ligado ao cadastro dos prospects deste agente a função retornará um alerta""")
 def route_new_lead(
     tel_agente: int = Query(...),
     nome: str = Query(...),
@@ -75,7 +87,16 @@ def route_new_lead(
 # -----------------------------
 # Cadastro de Documento
 # -----------------------------
-@app.post("/cadastro_doct")
+@app.post("/cadastro_doct",
+          summary = "Validação de unidade consumidora atraves de um documento ou registro do mesmo",
+          description= """Realizamos os seguintes passos de conferência neste endpoint
+                          - Conferir se o documento existe na base
+                              - Se sim: conferir se há alguma unidade consumidora atrelada a este documento
+                                  - Se sim: Retornar a lista de UCs atreladas a este documento
+                                  - Se não: Autorizar o cliente a inserir uma nova unidade consumidora atrelada ao documento existente
+                              - Se não: conferir se o documento é valido
+                                  - Se sim: Cadastrar o documento corretamente na base de dados e autorizar o usuário a prosseguir
+                                  - Se não: Retornar os dados de erro e solicitar os dados novamente""")
 def route_new_doct(
     tipo_doct: TipoDocumento = Query(...),
     nr_documento: str = Query(...),
@@ -105,7 +126,11 @@ def route_new_doct(
 # -----------------------------
 # Distribuidora por CEP
 # -----------------------------
-@app.get("/find_disco")
+@app.get("/find_disco",
+         summary = "Identificação de distribuidora a partir de CEP",
+         description = """Antes de pegar todos os novos dados para cadastro de uma UC precisamos que o agente identifique qual é a distribuidora que atende a UC.
+                         A partir do CEP validamos quais são as distribuidoras que atendem a região do cliente.
+                         Este dado será utilizado no próximo end point cadastro_uc""")
 def find_disco(cep: str):
     full_data = pk.check_cep(cep)
 
@@ -129,14 +154,20 @@ def find_disco(cep: str):
 # -----------------------------
 # URL Check
 # -----------------------------
-@app.post("/check_url")
-def check_document(doc: DocumentInput):
-    return pk.url_check(doc)
+
+@app.post("/check_url",
+          summary = "Verificação se o documento enviado é legível ou não", 
+          description = "Este endpoint é utilizado em segundo plano para conferir se o URL enviado é legpivel e apto para envio de extração de dados ou não. Se a opção request_extraction for True os dados serão solicitados para extração na 4docs e retornara as credenciais na URL")
+def check_document(doc: DocumentInput, request_extraction: Optional[bool] = Query(False)):
+    return pk.url_check(doc, request_extraction)
 
 # -----------------------------
 # Cadastro de UC
 # -----------------------------
-@app.post("/cadastro_uc")
+@app.post("/cadastro_uc",
+          summary ="Envio de dados para cadastro da UC",
+          description = "Nesta etapa vamos receber os dados principais para serem cadastrados na tabela de UCs e realizar conferências para saber se não há duplicidade ou se alguma das informaçõies inseridas não apresentam erros"
+          )
 def route_new_uc(
     nr_documento: str = Query(...),
     id_prospect: int = Query(...),

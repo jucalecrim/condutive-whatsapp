@@ -138,12 +138,18 @@ def cadastro_lead(tel_agente, nome, telefone, email, db = 'dev'):
                 mensagem = mensagem + " o lead que você informou já foi inserido por outro agente previamente. Por favor entre em contato com seu líder {}".format(nome_lider)
                 actions = {"1":"Finalizar solicitação"}
                 status_code = 403
+                subject = f"Erro 403 cadastro lead WPP {nome}"
+                pk.notify_error("juca@condutive.com.br", prospect + f" {nome_agente} ({id_agente})", subject)
+                
             elif tb_prospect.shape[0] > 1:
                 #Cadastrado por mais de um agente
                 prospect =  "Lead já cadastrado anteriormente e por mais de um agente"
                 mensagem = mensagem + " o lead que você está tentando cadastrar já foi cadastrado por mais de um agente anteriormente. Por favor entre em contato com seu líder {}".format(nome_lider)
                 actions = {"1":"Finalizar solicitação"}
                 status_code = 403
+                subject = f"Erro 403 cadastro lead WPP {nome}"
+                pk.notify_error("juca@condutive.com.br", prospect + f" {nome_agente} ({id_agente})", subject)
+                
             else:
                 #Cadastrado por ele mesmo anteriormente
                 prospect =  "Lead já cadastrado anteriormente"
@@ -179,26 +185,33 @@ def cadastro_lead(tel_agente, nome, telefone, email, db = 'dev'):
                 prospect = "Novo lead solicitado para cadastro e inserido na base"
             except Exception as e:
                 print("Não consegui escrever na base de dados este novo lead")
-                prospect = f"Novo lead solicitado para cadastro porém com erro ao escrever no banco de dados: {e}"
+                prospect = f"Novo lead {nome} solicitado para cadastro porém com erro ao escrever no banco de dados: {e}"
                 status_code = 417
+                subject = f"Erro 417 cadastro lead WPP {nome}"
+                pk.notify_error("juca@condutive.com.br", prospect + f" {nome_agente} ({id_agente})", subject)
             
             return {"status_code":status_code, "status": prospect, "mensagem":mensagem, "actions":{"1":"PF", "2":"PJ"}, 'return_data':return_data}
             
         return {"status_code":status_code, "status": prospect, "mensagem":mensagem, "actions":actions}
 
     except Exception as e:
+        subject = f"Erro ao cadastrar novo lead WPP {nome}"
+        message = f"nome lead: {nome}, telefone: {telefone}, tel agente: {tel_agente} ERRO: {e}"
+        pk.notify_error("juca@condutive.com.br", message, subject)
         return {'status_code':500, 'detail':str(e)}
 
 def cadastro_doct(tipo_doct, nr_documento, id_prospect, db = 'dev'):
-    db = True if db == 'prod' else False
-    
+
     return_data = {"tipo_doct":tipo_doct, "nr_documento":nr_documento, "id_prospect":id_prospect, "db":db}
+    
+    db = True if db == 'prod' else False
     insert_query = f"INSERT INTO public.doct_cliente (tipo_doct, nr_documento, id_prospect) VALUES ('{tipo_doct}', '{nr_documento}', '{id_prospect}'); "
 
     query = f"select tb1.nr_documento, tb1.identificacao, tb1.tipo_doct, tb2.cod_cliente, tb2.apelido_uc, tb2.endereco, tb2.gru_mod, tb2.cons_efp, tb2.valor_fatura, tb2.url_fatura, tb1.created_at from public.doct_cliente as tb1 left join public.dados_uc as tb2 on tb1.nr_documento = tb2.nr_documento where tb1.id_prospect = '{id_prospect}' AND tb1.nr_documento = '{nr_documento}';"
     
     tb_doct = pk.get_db("public", query, db)
     tidy_doct_nr = pk.tidy_doct(tipo_doct, nr_documento)
+    status_code = 100
 
     if tb_doct.shape[0] > 0:
         dt_criacao = str(tb_doct.created_at.iloc[-1])[:19]
@@ -225,11 +238,10 @@ def cadastro_doct(tipo_doct, nr_documento, id_prospect, db = 'dev'):
                 if check_doct.get('exists') == False:
                     status_code = 206
                     #Deixar seguir mas não encontramos na RFB então ou escreve parcialmente ou nem escreve
-                    mensagem = "Esta é a primeira vez que o {} está sendo cadastrado no nosso sistema. O documento é valido mas não foi encontrato na base de dados da Receita Federal. Vamos verificar o que ocorreu mas a solicitação de cadastro permanece válida.".format(tidy_doct_nr)
+                    mensagem = "Esta é a primeira vez que o {} está sendo cadastrado no nosso sistema. O documento é válido, mas não foi encontrado na base de dados da Receita Federal. Vamos verificar o que ocorreu mas a solicitação de cadastro permanece válida.".format(tidy_doct_nr)
                     actions = {"1":"Finalizar solicitação", "2":"Seguir e cadastrar uma nova unidade consumidora atrelada ao documento {}".format(tidy_doct_nr)}
                 else:
                     #Aqui é mar azul tudo lindo pode escrever a porra toda no banco
-                    status_code = 200
                     mensagem = "Esta é a primeira vez que o {} está sendo cadastrado no nosso sistema. O documento é valido encontramos todas as informações necessárias na base da Receita Federal.".format(tidy_doct_nr)
                     actions = {"1":"Finalizar solicitação", "2":"Seguir e cadastrar uma nova unidade consumidora atrelada ao documento {}".format(tidy_doct_nr)}
                     company_data = check_doct.get('company_data')
@@ -264,6 +276,8 @@ def cadastro_doct(tipo_doct, nr_documento, id_prospect, db = 'dev'):
                     status_code = write_return['status_code']
             else:
                 documento = documento + " Erro ao escrever novo documento no DB: "  + write_return['message']
+                subject = f"Erro 417 cadastro documento WPP {tipo_doct} - {nr_documento}"
+                pk.notify_error("juca@condutive.com.br", documento + f" {nr_documento} - Prospect: {id_prospect}", subject)
                 status_code = 417
                 
             return {"status_code": status_code, "status": documento, "mensagem":mensagem, "actions":actions, 'return_data':return_data}
@@ -272,11 +286,14 @@ def cadastro_doct(tipo_doct, nr_documento, id_prospect, db = 'dev'):
             #Doct invalido barra tudo
             mensagem = "Você está tentando cadastrar o novo documento {} mas ele não é valido. Por favor confira as informações e insira um {} válido".format(tidy_doct_nr, tipo_doct)
             actions = {"1":"Finalizar solicitação", "2":"Tentar novamente cadastrar o documento atrelado a fatura de energia"}
+            subject = f"Erro 406 cadastro documento WPP {tipo_doct} - {nr_documento}"
+            pk.notify_error("juca@condutive.com.br", mensagem + f" Prospect: {id_prospect}", subject)
+            
             return {"status_code": 406, "status": documento, "mensagem":mensagem, "actions":actions}
 
 
 # def cadastro_uc(cep, valor_fatura, nr_documento = None, doct_file = None):
-def cadastro_uc(dicty_initial, url_doct, db = 'dev'):
+def cadastro_uc(dicty_initial, url_doct, db = 'dev'): #TODO continuar daqui com a documentação da agent fire
     db = True if db == 'prod' else False
     
     #Parte 4: Conferir se os dados à serem inseridos na UC são novos ou não
