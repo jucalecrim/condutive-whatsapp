@@ -310,7 +310,7 @@ def cadastro_uc(dicty_initial, url_doct, db = 'dev'): #TODO continuar daqui com 
         if url_status['readable'] == False:
             status_leitura = "Erro ao tentar ler sua fatura de energia: {}".format(url_status['message'])
             print(status_leitura)
-            status_code = 100
+            status_code = 102
             
             #Dados não legíveis, inserir dados enviados mas retornar dados de cautela. Não gerar comparador ainda
             
@@ -334,19 +334,24 @@ def cadastro_uc(dicty_initial, url_doct, db = 'dev'): #TODO continuar daqui com 
                     if return_callback['status_code'] == 200:
                         #Se deu bom a extração vamos inserir os dados tratados
                         return_dadosInsert = pk.insert_dadosFatura(tidy_json=return_callback['return'], db=db)
+                        #TODO ver aqui se fatura ta atualizada ou nao
                         if return_dadosInsert['status_code'] == 201:
+                            status_code = 201
                             print("conferir ou criar comparador e enviar o link")
                             #TODO ainda não tem essa função de inserir ou criar comparador
-                            
+                        else:
+                            status_code = 417
+                            return return_dadosInsert
                     else:
-                        #TODO se caiu aqui deu algum erro inserindo os dados da UC no banco
+                        status_code = 417
                         return return_callback
+
 
             else:
                 #TODO fatura legivel mas dados não lidos na 4docs, vamos assumir alguns e inserir deles a partir da leitura normal e salvar no banco
                 
                 status_leitura = "Fatura legível, vamos prosseguir com a extração na 4 docs"
-                status_code = 200
+                status_code = 100
             
             #envia fatura para leitura
             #pega a fatura de volta
