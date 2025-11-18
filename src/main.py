@@ -14,13 +14,14 @@ app = FastAPI(title="Condutive WhatsApp API")
 # -----------------------------
 class DocumentInput(BaseModel):
     url: str
-    def solicita_extracao(PDF_URL: str, request_extraction: Optional[bool] = Query(False)):
-        return pk.solicita_extract_url(PDF_URL, request_extraction)
-
+    
 class TipoDocumento(str, Enum):
     CPF = "CPF"
     CNPJ = "CNPJ"
 
+class BancoDados(str, Enum):
+    PROD = "dev"
+    DEV = "prod"
 # -----------------------------
 # Frontpage
 # -----------------------------
@@ -37,21 +38,21 @@ def read_root():
     
 @app.get("/check_telAgente", 
          description = "Conferir se o telefone do Agente existe na base de dados ou não")
-def check_cel(tel: int):
-    return pk.check_agent_tel(tel)
+def check_cel(tel: int, db: BancoDados = Query(...)):
+    return pk.check_agent_tel(tel, db.value)
 
 # -----------------------------
 # WhatsApp Flows
 # -----------------------------
 @app.get("/ver", 
          description = "Ver quais unidade consumidoras estão com o comparador disponível para uso")
-def route_ver_ucs(tel: int):
-    return ver_ucs(tel)
+def route_ver_ucs(tel: int, db: BancoDados = Query(...)):
+    return ver_ucs(tel, db.value)
 
 @app.get("/espera",
          description = "Ver quais unidade consumidoras estão aguardando comparador por alguma pendência")
-def route_ucs_problema(tel: int):
-    return ucs_problema(tel)
+def route_ucs_problema(tel: int, db: BancoDados = Query(...)):
+    return ucs_problema(tel, db.value)
 
 # -----------------------------
 # Cadastro de Lead
@@ -61,10 +62,12 @@ def route_ucs_problema(tel: int):
           description = """ O Telefone do agente é utilizado para autenticação e conferir todas as informaçõe da base de dados.
           Caso tenha mais de um dado de entrada ligado ao cadastro dos prospects deste agente a função retornará um alerta""")
 def route_new_lead(
+    db: BancoDados = Query(...),
     tel_agente: int = Query(...),
     nome: str = Query(...),
     telefone: int = Query(...),
     email: Optional[str] = Query(None)
+    
 ):
 
     if pk.contains_number(nome):
@@ -80,7 +83,7 @@ def route_new_lead(
         raise HTTPException(status_code=400, detail="Email informado é inválido")
 
     try:
-        return cadastro_lead(tel_agente, nome, telefone, email)
+        return cadastro_lead(tel_agente, nome, telefone, email, db.value)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -98,9 +101,11 @@ def route_new_lead(
                                   - Se sim: Cadastrar o documento corretamente na base de dados e autorizar o usuário a prosseguir
                                   - Se não: Retornar os dados de erro e solicitar os dados novamente""")
 def route_new_doct(
+    db: BancoDados = Query(...),
     tipo_doct: TipoDocumento = Query(...),
     nr_documento: str = Query(...),
-    id_prospect: int = Query(...)
+    id_prospect: int = Query(...),
+    
 ):
 
     try:
@@ -118,7 +123,7 @@ def route_new_doct(
                 detail=f"CNPJ deve conter 14 dígitos. Recebido: {len(nr_documento)}"
             )
 
-        return cadastro_doct(tipo_doct.value, nr_documento, id_prospect)
+        return cadastro_doct(tipo_doct.value, nr_documento, id_prospect, db.value)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -131,7 +136,7 @@ def route_new_doct(
          description = """Antes de pegar todos os novos dados para cadastro de uma UC precisamos que o agente identifique qual é a distribuidora que atende a UC.
                          A partir do CEP validamos quais são as distribuidoras que atendem a região do cliente.
                          Este dado será utilizado no próximo end point cadastro_uc""")
-def find_disco(cep: str):
+def find_disco(cep: str, db: BancoDados = Query(...)):
     full_data = pk.check_cep(cep)
 
     if not full_data.get("exists"):
@@ -139,7 +144,8 @@ def find_disco(cep: str):
 
     disco = pk.guess_disco(
         city=full_data["cidade"],
-        uf=full_data["uf"]
+        uf=full_data["uf"], 
+        db = db.value
     )
 
     disco["endereco_par"] = (
@@ -158,9 +164,8 @@ def find_disco(cep: str):
 @app.post("/check_url",
           summary = "Verificação se o documento enviado é legível ou não", 
           description = "Este endpoint é utilizado em segundo plano para conferir se o URL enviado é legpivel e apto para envio de extração de dados ou não. Se a opção request_extraction for True os dados serão solicitados para extração na 4docs e retornara as credenciais na URL")
-def check_document(doc: DocumentInput, request_extraction: Optional[bool] = Query(False)):
-    return pk.url_check(doc, request_extraction)
-
+def solicita_extracao(PDF_URL: str, request_extraction: Optional[bool] = Query(False)):
+    return pk.solicita_extract_url(PDF_URL, request_extraction)
 # -----------------------------
 # Cadastro de UC
 # -----------------------------
@@ -175,7 +180,8 @@ def route_new_uc(
     cep: str = Query(...),
     endereco_par: str = Query(...),
     valor_fatura: int = Query(...),
-    url_doct: str = Query(...)
+    url_doct: str = Query(...),
+    db: BancoDados = Query(...)
 ):
 
     try:
@@ -188,7 +194,7 @@ def route_new_uc(
             "valor_fatura": float(valor_fatura),
         }
 
-        return cadastro_uc(data, url_doct)
+        return cadastro_uc(data, url_doct, db.value)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
