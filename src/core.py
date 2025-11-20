@@ -140,7 +140,7 @@ def cadastro_lead(tel_agente, nome, telefone, email, db = 'dev'):
                 actions = {"1":"Finalizar solicitação"}
                 status_code = 403
                 subject = f"Erro 403 cadastro lead WPP {nome}"
-                pk.notify_error("juca@condutive.com.br", prospect + f" {nome_agente} ({id_agente})", subject, db)
+                pk.notify_error("juca@condutive.com.br", prospect + f" Agente: {nome_agente} ({id_agente})", subject, db)
                 
             elif tb_prospect.shape[0] > 1:
                 #Cadastrado por mais de um agente
@@ -149,7 +149,7 @@ def cadastro_lead(tel_agente, nome, telefone, email, db = 'dev'):
                 actions = {"1":"Finalizar solicitação"}
                 status_code = 403
                 subject = f"Erro 403 cadastro lead WPP {nome}"
-                pk.notify_error("juca@condutive.com.br", prospect + f" {nome_agente} ({id_agente})", subject, db)
+                pk.notify_error("juca@condutive.com.br", prospect + f" Agente: {nome_agente} ({id_agente})", subject, db)
                 
             else:
                 #Cadastrado por ele mesmo anteriormente
@@ -189,7 +189,7 @@ def cadastro_lead(tel_agente, nome, telefone, email, db = 'dev'):
                 prospect = f"Novo lead {nome} solicitado para cadastro porém com erro ao escrever no banco de dados: {e}"
                 status_code = 417
                 subject = f"Erro 417 cadastro lead WPP {nome}"
-                pk.notify_error("juca@condutive.com.br", prospect + f" {nome_agente} ({id_agente})", subject, db)
+                pk.notify_error("juca@condutive.com.br", prospect + f" Agente: {nome_agente} ({id_agente})", subject, db)
             
             return {"status_code":status_code, "status": prospect, "mensagem":mensagem, "actions":{"1":"PF", "2":"PJ"}, 'return_data':return_data}
             
@@ -293,6 +293,18 @@ def cadastro_doct(tipo_doct, nr_documento, id_prospect, db = 'dev'):
 
 
 # def cadastro_uc(cep, valor_fatura, nr_documento = None, doct_file = None):
+#Maria Eduarda
+#Valeria
+#Elisangela
+#Vander Hayder
+dicty_initial = {
+    "nr_documento": '04745433743',
+    "id_prospect": 106,
+    "cod_agente": 383,
+    "cep": '28910420',
+    "endereco": 'Rua INDIA 0 00000 852 CSA 2 JDM CAICARA, CABO FRIO - RJ',
+    "valor_fatura": float(427.66),
+}
 def cadastro_uc(dicty_initial, url_doct, request_extraction = True, db = 'dev'): #TODO continuar daqui com a documentação da agent fire
 
     block_comparador = True
@@ -301,21 +313,34 @@ def cadastro_uc(dicty_initial, url_doct, request_extraction = True, db = 'dev'):
     query = "SELECT * FROM public.dados_uc WHERE nr_documento = '{nr_documento}' AND cod_agente = '{cod_agente}' AND (cep = '{cep}' OR valor_fatura = '{valor_fatura}');"
     uc_v1 = pk.get_db("public", query.format(**dicty_initial), db)
     
+    #Ações padrão
     actions = {"1":"Finalizar solicitação"}
-    
+    insertion_type = "Cadastro simples"
+    insert_dict = dicty_initial.copy()
+    insert_dict['url_fatura'] = url_doct
+    status_code = 100
+
     if uc_v1.shape[0] < 2:
         #Nova UC ou UC com dados existentes
         url_status = pk.url_check(url_doct, request_extraction)
         status['readable'] = url_status['readable']
         if url_status['readable'] == False:
             msg_leitura = "Não foi possível realizar a leitura deste documento"
-            status_code = 102
-           
+    
         else:
-
             from pathlib import Path
             status['doc_type'] = Path(url_doct).suffix.lower()
-            if Path(url_doct).suffix.lower() == ".pdf":
+            
+            if (request_extraction == False) or (status['doc_type'] != ".pdf"):               
+                for i in url_status['guessed'].keys():
+                    insert_dict[i] = url_status['guessed'].get(i)
+                msg_leitura = "Fatura legível mas "
+                extra_txt = "extração não foi solicitada" if request_extraction == False else "documento é " + status['doc_type']
+                msg_leitura = msg_leitura + extra_txt
+                insertion_type = "Cadastro parcial"
+                status_code = 100
+                
+            elif (status['doc_type'] == ".pdf") & request_extraction:
                 #Aqui estamos solicitando a leitura do pdf na 4docs
                 retorno_extract = pk.callBack_fromId_4docs(request_id = url_status['extraction']['request_id'], credenciais = url_status['extraction']['credenciais'], pdf_url = url_status['extraction']['url_fatura'], db=db)
                 if retorno_extract['status_code'] != 200:
@@ -323,6 +348,7 @@ def cadastro_uc(dicty_initial, url_doct, request_extraction = True, db = 'dev'):
                     diff = relativedelta(dt.datetime.today(), data_fatura)
                     if diff.months > 3:
                         msg_fat = f"Fatura está com {diff.months} mês de defasagem"
+                        status_code = 103
                     else:
                         msg_fat = "Fatura atualizada"
                         
@@ -331,27 +357,18 @@ def cadastro_uc(dicty_initial, url_doct, request_extraction = True, db = 'dev'):
                     returno_insert_fatura = pk.insert_dadosFatura(tidy_json = retorno_extract, nr_documento = dicty_initial.get('nr_documento'), id_prospect = dicty_initial.get('id_prospect'), other = None, db = db)
                     if returno_insert_fatura['status_code'] == 201:
                         block_comparador = False
+                        status_code = 200
                     else:
-                        return returno_insert_fatura
+                        print("Erro ao inserir dados da fatura")
+                        
                     
                 else:
-                    return retorno_extract
+                    status_code = retorno_extract['status_code']
+                    msg_leitura = "Erro ao solicitar extração na função callBack_fromId_4docs: {retorno_extract}"
+
             else:
-            #Aqui conferimos se deu certo a leitura da fatura e qual o status da extração
-            
-                # if return_dadosInsert['status_code'] == 201:
-                #     status_code = 201
-                #     print("conferir ou criar comparador e enviar o link")
-                #     #TODO ainda não tem essa função de inserir ou criar comparador
-                # else:
-                #     status_code = 417
-                #     return return_dadosInsert
-
-
-
-
-                #TODO fatura legivel mas dados não lidos na 4docs, vamos assumir alguns e inserir deles a partir da leitura normal e salvar no banco
-                
+                msg_leitura = f"ELSE extraction: {request_extraction} & doct_type: {status['doc_type']}"
+                print("Não sei porque caiu aqui. {msg_leitura}")
                 status_leitura = "Fatura legível, vamos prosseguir com a extração na 4 docs"
                 status_code = 100
             
@@ -362,13 +379,7 @@ def cadastro_uc(dicty_initial, url_doct, request_extraction = True, db = 'dev'):
         ### Cadastrar UC com dados completos
         #Cadastrar UC com dados incompletos e solicitar ida pra area logada
 
-        if uc_v1.shape[0] == 1:
-            #Dados existentes
-            ## Conferir se estão completos e aprovados
-            ## Voltar com comparador se tiver tudo ok
-            ## Explicar o que está faltando se tiver algum problema
-            ## Atualizar se tiver dados faltantes
-            
+        
             unidade = "Dado dupliicado na base de dados, conferido via CEP e valor de fatura"
             mensagem = "O dado inserido está duplicado na base de dados verificamos que a unidade {apelido_uc} registrada no CEP {cep} com o valor de R$ {valor_fatura}".format(**dicty_initial)
         
@@ -380,7 +391,7 @@ def cadastro_uc(dicty_initial, url_doct, request_extraction = True, db = 'dev'):
         unidade = "Dado duplicado para mais de uma UC"
         mensagem = "Foi encontrada mais de uma unidade consumidora neste local com caracteristicas similares. Vamos ter que analisar este caso em particular e seu lider entratá em contrato com você em breve. Obrigado. "
         #envar uma mensagem ao lider falando desta ocorrência
-        return {"status_code":409, "status": unidade, "mensagem":mensagem, "actions":actions, 'return_data':{"insert_data":{"cep":cep, "nr_documento":nr_documento, "valor_fatura":valor_fatura},"dados_uc":uc_v1.to_dict(orient='records')}}
+        return {"status_code":status_code, "status": unidade, "mensagem":mensagem, "actions":actions, 'return_data':{"insert_data":{"cep":cep, "nr_documento":nr_documento, "valor_fatura":valor_fatura},"dados_uc":uc_v1.to_dict(orient='records')}}
 
 
 def newLead_whats(return_data, db):
