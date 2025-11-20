@@ -298,35 +298,39 @@ def cadastro_doct(tipo_doct, nr_documento, id_prospect, db = 'dev'):
 #Elisangela
 #Vander Hayder
 dicty_initial = {
-    "nr_documento": '04745433743',
-    "id_prospect": 106,
+    "nr_documento": '00432976000133',
+    "id_prospect": 105,
     "cod_agente": 383,
-    "cep": '28910420',
-    "endereco": 'Rua INDIA 0 00000 852 CSA 2 JDM CAICARA, CABO FRIO - RJ',
-    "valor_fatura": float(427.66),
+    "cep": '24230540',
+    "endereco": 'RUA JOAQUIM TAVORA 0 310, ICARAI, NITEROI - RJ',
+    "valor_fatura": float(1309.92),
 }
 def cadastro_uc(dicty_initial, url_doct, request_extraction = True, db = 'dev'): #TODO continuar daqui com a documentação da agent fire
 
-    block_comparador = True
-    status = dict()
+    
     #Parte 4: Conferir se os dados à serem inseridos na UC são novos ou não
     query = "SELECT * FROM public.dados_uc WHERE nr_documento = '{nr_documento}' AND cod_agente = '{cod_agente}' AND (cep = '{cep}' OR valor_fatura = '{valor_fatura}');"
     uc_v1 = pk.get_db("public", query.format(**dicty_initial), db)
     
-    #Ações padrão
+    #Dados padrão de retorno da função
+    status = {"status_code": 100, "insertion_type":"Cadastro simples", "requested_extraction":request_extraction, 'db':db}
+    messages = dict()
+    return_cadastroUC = dict()
+    block_comparador = True
     actions = {"1":"Finalizar solicitação"}
-    insertion_type = "Cadastro simples"
+    
+    #Dados padrão de insert na base de dados
     insert_dict = dicty_initial.copy()
     insert_dict['url_fatura'] = url_doct
-    status_code = 100
 
     if uc_v1.shape[0] < 2:
         #Nova UC ou UC com dados existentes
         url_status = pk.url_check(url_doct, request_extraction)
-        status['readable'] = url_status['readable']
+        return_cadastroUC['readable'] = url_status['readable']
         if url_status['readable'] == False:
-            msg_leitura = "Não foi possível realizar a leitura deste documento"
-    
+            messages['leitura_doct'] = "Não foi possível realizar a leitura deste documento"
+            #MARIA EDUARDA PAROU AQUI
+            #VALERIA TAMBEM
         else:
             from pathlib import Path
             status['doc_type'] = Path(url_doct).suffix.lower()
@@ -337,29 +341,46 @@ def cadastro_uc(dicty_initial, url_doct, request_extraction = True, db = 'dev'):
                 msg_leitura = "Fatura legível mas "
                 extra_txt = "extração não foi solicitada" if request_extraction == False else "documento é " + status['doc_type']
                 msg_leitura = msg_leitura + extra_txt
-                insertion_type = "Cadastro parcial"
-                status_code = 100
+                messages['leitura_doct'] = msg_leitura
+                del msg_leitura
+                status['insertion_type'] = "Cadastro parcial"
+                status['status_code'] = 100
+                #ELISANGELA com request_extraction = False ta aqui
                 
             elif (status['doc_type'] == ".pdf") & request_extraction:
                 #Aqui estamos solicitando a leitura do pdf na 4docs
                 retorno_extract = pk.callBack_fromId_4docs(request_id = url_status['extraction']['request_id'], credenciais = url_status['extraction']['credenciais'], pdf_url = url_status['extraction']['url_fatura'], db=db)
-                if retorno_extract['status_code'] != 200:
+                if retorno_extract['status_code'] == 200:
+                    messages['extraction_log'] = "Extraction ok"
                     data_fatura = dt.datetime.strptime(retorno_extract['return']['dados_uc']['data_ref'], '%Y-%m-%d')
                     diff = relativedelta(dt.datetime.today(), data_fatura)
                     if diff.months > 3:
-                        msg_fat = f"Fatura está com {diff.months} mês de defasagem"
-                        status_code = 103
+                        status['fat_update_status'] = f"Fatura está com {diff.months} mês de defasagem"
+                        status['status_code'] = 103
                     else:
-                        msg_fat = "Fatura atualizada"
+                        status['fat_update_status'] = "Fatura atualizada"
                         
                     #TODO trata json que vai ser inserido
                     #WARNING!!!!!!!!!!!!!! Cuidado que essa porra ta escrevendom 2x
-                    returno_insert_fatura = pk.insert_dadosFatura(tidy_json = retorno_extract, nr_documento = dicty_initial.get('nr_documento'), id_prospect = dicty_initial.get('id_prospect'), other = None, db = db)
-                    if returno_insert_fatura['status_code'] == 201:
-                        block_comparador = False
-                        status_code = 200
+                    if uc_v1.shape[0] == 0:
+                        status['db_write'] = "POST"
                     else:
-                        print("Erro ao inserir dados da fatura")
+                        status['db_write'] = "PUT"
+                    returno_insert_fatura = pk.insert_dadosFatura(tidy_json = retorno_extract, nr_documento = dicty_initial.get('nr_documento'), id_prospect = dicty_initial.get('id_prospect'), other = None, db = db)
+                    status['write_status'] = returno_insert_fatura['status_code']
+                    
+                    if status['write_status'] == 201:
+                        status['insertion_type'] = "Cadastro completo"
+                        block_comparador = False
+
+                        gru_mod = retorno_extract['return']['dados_uc']['gru_mod']
+                        suppliers_data = pk.call_compardor(id_uc = returno_insert_fatura['id_uc'], force_recalculate = True, hist_consumo = False if gru_mod.startswith("A") else True, db = db)
+                        return_comparador = pk.create_comparator(id_uc = returno_insert_fatura['id_uc'], suppliers_data = suppliers_data, db = db)
+                    else:
+                        status_code = returno_insert_fatura['status_code']
+                        msg_leitura = "Erro escrever os dados da UC no banco de dados {returno_insert_fatura['details']}"
+                        status_code = 500
+
                         
                     
                 else:
