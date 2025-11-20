@@ -373,7 +373,6 @@ def cadastro_uc(dicty_initial, url_doct, request_extraction = True, db = 'dev'):
                         status['insertion_type'] = "Cadastro completo"
                         block_comparador = False
 
-                        gru_mod = retorno_extract['return']['dados_uc']['gru_mod']
                         suppliers_data = pk.call_compardor(id_uc = returno_insert_fatura['id_uc'], force_recalculate = True, hist_consumo = False if gru_mod.startswith("A") else True, db = db)
                         return_comparador = pk.create_comparator(id_uc = returno_insert_fatura['id_uc'], suppliers_data = suppliers_data, db = db)
                     else:
@@ -381,8 +380,6 @@ def cadastro_uc(dicty_initial, url_doct, request_extraction = True, db = 'dev'):
                         msg_leitura = "Erro escrever os dados da UC no banco de dados {returno_insert_fatura['details']}"
                         status_code = 500
 
-                        
-                    
                 else:
                     status_code = retorno_extract['status_code']
                     msg_leitura = "Erro ao solicitar extração na função callBack_fromId_4docs: {retorno_extract}"
