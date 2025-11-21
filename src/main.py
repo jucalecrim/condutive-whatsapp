@@ -179,7 +179,7 @@ def route_new_uc(
     cod_agente: int = Query(...),
     cep: str = Query(...),
     endereco_par: str = Query(...),
-    valor_fatura: int = Query(...),
+    valor_fatura: float = Query(...),
     url_doct: str = Query(...),
     db: BancoDados = Query(...)
 ):

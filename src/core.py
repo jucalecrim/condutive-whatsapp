@@ -520,7 +520,7 @@ def cadastro_uc(dicty_initial, url_doct, request_extraction=True, db='dev'):
 
             # insertion ok
             status['write_status_code'] = 102
-            id_uc = pk.get_db("public", query.format(**dicty_initial), db).id_uc.iloc[-1]
+            id_uc = int(pk.get_db("public", query.format(**dicty_initial), db).id_uc.iloc[-1])
 
             messages["comparador"] = action_msg
             actions = {
