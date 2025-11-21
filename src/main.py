@@ -194,7 +194,7 @@ def route_new_uc(
             "valor_fatura": float(valor_fatura),
         }
 
-        return cadastro_uc(data, url_doct, db.value)
+        return cadastro_uc(dicty_initial = data, url_doct = url_doct, request_extraction = True, db = db.value)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

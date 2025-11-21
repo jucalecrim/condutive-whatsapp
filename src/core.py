@@ -495,7 +495,9 @@ def cadastro_doct(tipo_doct, nr_documento, id_prospect, db = 'dev'):
 #     except Exception as exe:
 #         return {"status_code":500, "detail":str(exe)}
 
-def cadastro_uc(dicty_initial, url_doct, request_extraction=True, db='dev'):
+def cadastro_uc(dicty_initial, url_doct, request_extraction, db):
+    print(request_extraction)
+    print(db)
     try:
 
         def build_return(code, status, messages, actions=None, link=None, id_uc=None):
