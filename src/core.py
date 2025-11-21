@@ -292,124 +292,428 @@ def cadastro_doct(tipo_doct, nr_documento, id_prospect, db = 'dev'):
             return {"status_code": 406, "status": documento, "mensagem":mensagem, "actions":actions}
 
 
-# def cadastro_uc(cep, valor_fatura, nr_documento = None, doct_file = None):
 #Maria Eduarda
 #Valeria
 #Elisangela
 #Vander Hayder
-dicty_initial = {
-    "nr_documento": '00432976000133',
-    "id_prospect": 105,
-    "cod_agente": 383,
-    "cep": '24230540',
-    "endereco": 'RUA JOAQUIM TAVORA 0 310, ICARAI, NITEROI - RJ',
-    "valor_fatura": float(1309.92),
-}
-def cadastro_uc(dicty_initial, url_doct, request_extraction = True, db = 'dev'): #TODO continuar daqui com a documentação da agent fire
 
-    
-    #Parte 4: Conferir se os dados à serem inseridos na UC são novos ou não
-    query = "SELECT * FROM public.dados_uc WHERE nr_documento = '{nr_documento}' AND cod_agente = '{cod_agente}' AND (cep = '{cep}' OR valor_fatura = '{valor_fatura}');"
-    uc_v1 = pk.get_db("public", query.format(**dicty_initial), db)
-    
-    #Dados padrão de retorno da função
-    status = {"status_code": 100, "insertion_type":"Cadastro simples", "requested_extraction":request_extraction, 'db':db}
-    messages = dict()
-    return_cadastroUC = dict()
-    block_comparador = True
-    actions = {"1":"Finalizar solicitação"}
-    
-    #Dados padrão de insert na base de dados
-    insert_dict = dicty_initial.copy()
-    insert_dict['url_fatura'] = url_doct
+# dicty_initial = {
+#     "nr_documento": '04745433743',
+#     "id_prospect": 106,
+#     "cod_agente": 383,
+#     "cep": '28910420',
+#     "endereco": 'Rua INDIA 0 00000 852 CSA 2 JDM CAICARA, CABO FRIO - RJ',
+#     "valor_fatura": float(427.66),
+# }
 
-    if uc_v1.shape[0] < 2:
-        #Nova UC ou UC com dados existentes
-        url_status = pk.url_check(url_doct, request_extraction)
-        return_cadastroUC['readable'] = url_status['readable']
-        if url_status['readable'] == False:
-            messages['leitura_doct'] = "Não foi possível realizar a leitura deste documento"
-            #MARIA EDUARDA PAROU AQUI
-            #VALERIA TAMBEM
-        else:
-            from pathlib import Path
-            status['doc_type'] = Path(url_doct).suffix.lower()
-            
-            if (request_extraction == False) or (status['doc_type'] != ".pdf"):               
-                for i in url_status['guessed'].keys():
-                    insert_dict[i] = url_status['guessed'].get(i)
-                msg_leitura = "Fatura legível mas "
-                extra_txt = "extração não foi solicitada" if request_extraction == False else "documento é " + status['doc_type']
-                msg_leitura = msg_leitura + extra_txt
-                messages['leitura_doct'] = msg_leitura
-                del msg_leitura
-                status['insertion_type'] = "Cadastro parcial"
-                status['status_code'] = 100
-                #ELISANGELA com request_extraction = False ta aqui
-                
-            elif (status['doc_type'] == ".pdf") & request_extraction:
-                #Aqui estamos solicitando a leitura do pdf na 4docs
-                retorno_extract = pk.callBack_fromId_4docs(request_id = url_status['extraction']['request_id'], credenciais = url_status['extraction']['credenciais'], pdf_url = url_status['extraction']['url_fatura'], db=db)
-                if retorno_extract['status_code'] == 200:
-                    messages['extraction_log'] = "Extraction ok"
-                    data_fatura = dt.datetime.strptime(retorno_extract['return']['dados_uc']['data_ref'], '%Y-%m-%d')
-                    diff = relativedelta(dt.datetime.today(), data_fatura)
-                    if diff.months > 3:
-                        status['fat_update_status'] = f"Fatura está com {diff.months} mês de defasagem"
-                        status['status_code'] = 103
-                    else:
-                        status['fat_update_status'] = "Fatura atualizada"
+# def cadastro_uc(dicty_initial, url_doct, request_extraction = True, db = 'dev'): 
+#     try:
+    
+#         query = "SELECT * FROM public.dados_uc WHERE nr_documento = '{nr_documento}' AND cod_agente = '{cod_agente}' AND (cep = '{cep}' OR valor_fatura = '{valor_fatura}');"
+#         uc_v1 = pk.get_db("public", query.format(**dicty_initial), db)
+        
+#         #Dados padrão de insert na base de dados
+#         insert_dict = dicty_initial.copy()
+#         insert_dict['url_fatura'] = url_doct
+        
+#         #Dados padrão de retorno da função
+#         status = {"write_status_code": 100, "insertion_type":"Cadastro simples", "requested_extraction":request_extraction, 'db':db, 'dicty_initial':insert_dict}
+#         messages = dict()
+#         block_comparador = True
+#         actions = {"1":"Finalizar solicitação"}
+        
+#         if uc_v1.shape[0] < 2:
+#             messages['initial_df'] = "DF inicial com {} linhas".format(uc_v1.shape[0])
+#             #Nova UC ou UC com dados existentes
+#             url_status = pk.url_check(url_doct, request_extraction)
+#             status['doct_readable'] = url_status['readable']
+#             if url_status['readable'] == False:
+#                 status['insertion_type'] = "Cadastro simples"
+#                 messages['leitura_doct'] = "Não foi possível realizar a leitura deste documento"
+#                 if uc_v1.shape[0] == 1:
+#                     messages['leitura_doct'] = messages['leitura_doct'] + " Por isso não vamos atualizar os dados já cadastrados na base."
+#                     dict_return = {'status_code':403, 
+#                                    'status':status,
+#                                    'messages':messages,
+#                                    'actions':actions}
+#                 else:
+#                     insert_query = pk.key_loops(payload = insert_dict, table = "public.dados_uc")
+#                     returno_insert_fatura = pk.get_db('public', insert_query, db)
+#                     if returno_insert_fatura['status_code'] == 201:
+#                         status['write_status_code'] = 102
+#                         id_uc = pk.get_db("public", query.format(**dicty_initial), db).id_uc.iloc[-1]
+#                         actions['2'] = f"Acessar área logada e atualizar dados da, na UC {id_uc}"
+#                         messages['comparador'] = "Comparador não solicitado dado o cadastro simples"
+#                         dict_return = {'status_code':102, 
+#                                        'link':'https://agentes.condutive.com/',
+#                                        'id_uc':id_uc,
+#                                        'status':status,
+#                                        'messages':messages,
+#                                        'actions':actions}
+#                     else:
+#                         del returno_insert_fatura['status_code']
+#                         messages['dados_ucInsert'] = "Erro ao inserir dados do cadastro simples da UC {}".format(returno_insert_fatura)
+#                         dict_return = {'status_code':417, 
+#                                        'status':status,
+#                                        'messages':messages,
+#                                        'actions':actions}
                         
-                    #TODO trata json que vai ser inserido
-                    #WARNING!!!!!!!!!!!!!! Cuidado que essa porra ta escrevendom 2x
-                    if uc_v1.shape[0] == 0:
-                        status['db_write'] = "POST"
-                    else:
-                        status['db_write'] = "PUT"
-                    returno_insert_fatura = pk.insert_dadosFatura(tidy_json = retorno_extract, nr_documento = dicty_initial.get('nr_documento'), id_prospect = dicty_initial.get('id_prospect'), other = None, db = db)
-                    status['write_status'] = returno_insert_fatura['status_code']
+#             else:
+#                 from pathlib import Path
+#                 status['doc_type'] = Path(url_doct).suffix.lower()
+                
+#                 if (request_extraction == False) or (status['doc_type'] != ".pdf"):               
+#                     for i in url_status['guessed'].keys():
+#                         insert_dict[i] = url_status['guessed'].get(i)
+#                     msg_leitura = "Fatura legível mas "
+#                     extra_txt = "extração não foi solicitada" if request_extraction == False else "documento é " + status['doc_type']
+#                     msg_leitura = msg_leitura + extra_txt
+#                     messages['leitura_doct'] = msg_leitura
+#                     del msg_leitura
+#                     status['insertion_type'] = "Cadastro parcial"
                     
-                    if status['write_status'] == 201:
-                        status['insertion_type'] = "Cadastro completo"
-                        block_comparador = False
-
-                        suppliers_data = pk.call_compardor(id_uc = returno_insert_fatura['id_uc'], force_recalculate = True, hist_consumo = False if gru_mod.startswith("A") else True, db = db)
-                        return_comparador = pk.create_comparator(id_uc = returno_insert_fatura['id_uc'], suppliers_data = suppliers_data, db = db)
-                    else:
-                        status_code = returno_insert_fatura['status_code']
-                        msg_leitura = "Erro escrever os dados da UC no banco de dados {returno_insert_fatura['details']}"
-                        status_code = 500
-
-                else:
-                    status_code = retorno_extract['status_code']
-                    msg_leitura = "Erro ao solicitar extração na função callBack_fromId_4docs: {retorno_extract}"
-
-            else:
-                msg_leitura = f"ELSE extraction: {request_extraction} & doct_type: {status['doc_type']}"
-                print("Não sei porque caiu aqui. {msg_leitura}")
-                status_leitura = "Fatura legível, vamos prosseguir com a extração na 4 docs"
-                status_code = 100
-            
-            #envia fatura para leitura
-            #pega a fatura de volta
-            #trata e insere os dados
-
-        ### Cadastrar UC com dados completos
-        #Cadastrar UC com dados incompletos e solicitar ida pra area logada
-
+#                     if uc_v1.shape[0] == 1:
+#                         messages['leitura_doct'] = messages['leitura_doct'] + " Por isso não vamos atualizar os dados já cadastrados na base."
+#                         dict_return = {'status_code':403, 
+#                                        'status':status,
+#                                        'messages':messages,
+#                                        'actions':actions}
+#                     else:
+#                         insert_query = pk.key_loops(payload = insert_dict, table = "public.dados_uc")
+#                         returno_insert_fatura = pk.get_db('public', insert_query, db)
+#                         if returno_insert_fatura['status_code'] == 201:
+#                             status['write_status_code'] = 102
+#                             id_uc = pk.get_db("public", query.format(**dicty_initial), db).id_uc.iloc[-1]
+#                             actions['2'] = f"Acessar área logada e atualizar dados da, na UC {id_uc}"
+#                             messages['comparador'] = "Comparador não solicitado dado o cadastro parcial"
+#                             dict_return = {'status_code':102, 
+#                                            'link':'https://agentes.condutive.com/',
+#                                            'id_uc':id_uc,
+#                                            'status':status,
+#                                            'messages':messages,
+#                                            'actions':actions}
+#                         else:
+#                             del returno_insert_fatura['status_code']
+#                             messages['dados_ucInsert'] = "Erro ao inserir dados do cadastro parcial da UC {}".format(returno_insert_fatura)
+#                             dict_return = {'status_code':417, 
+#                                            'status':status,
+#                                            'messages':messages,
+#                                            'actions':actions}
+                    
+#                 elif (status['doc_type'] == ".pdf") & request_extraction:
+#                     #Aqui estamos solicitando a leitura do pdf na 4docs
+#                     status['insertion_type'] = "Cadastro completo"
+#                     retorno_extract = pk.callBack_fromId_4docs(request_id = url_status['extraction']['request_id'], credenciais = url_status['extraction']['credenciais'], pdf_url = url_status['extraction']['url_fatura'], db=db)
+#                     status['extract_status_code'] = retorno_extract['status_code']
+                    
+#                     if retorno_extract['status_code'] == 200:
+#                         messages['extraction_log'] = "Extraction ok"
+                        
+#                         data_fatura = dt.datetime.strptime(retorno_extract['return']['dados_uc']['data_ref'], '%Y-%m-%d')
+#                         diff = relativedelta(dt.datetime.today(), data_fatura)
+#                         if diff.months > 3:
+#                             messages['defasagem_fatura'] = f"Fatura está com {diff.months} mês de defasagem"
+#                             status['write_status_code'] = 103
+#                         else:
+#                             messages['defasagem_fatura'] = "Fatura atualizada"
+                            
+#                         if uc_v1.shape[0] == 0:
+#                             status['db_write'] = "POST"
+#                             messages['update_context'] = "Os dados serão inserido pela primeira vez na base de dados"
+#                         else:
+#                             status['db_write'] = "PUT"
+#                             messages['update_context'] = "Os dados serão atualizados na fatura. versão antiga de: {} atualizada em {} versão atual de {}".format(str(uc_v1.data_ref.iloc[-1])[:10], str(uc_v1.updated_at.iloc[-1])[:17], retorno_extract['return']['dados_uc']['data_ref'])
+#                         returno_insert_fatura = pk.insert_dadosFatura(tidy_json = retorno_extract, nr_documento = dicty_initial.get('nr_documento'), id_prospect = dicty_initial.get('id_prospect'), other = None, db = db)
+                        
+#                         if (returno_insert_fatura['status_code'] == 201) & (status['db_write'] == "PUT"):
+#                             status['write_status_code'] = 103
+#                         else:
+#                             status['write_status_code'] = returno_insert_fatura['status_code']
+                    
+                        
+#                         if status['write_status_code'] != 500:
+#                             messages['dados_ucInsert'] = 'Os dados foram inseridos corretamente na tabela public.dados_uc'
+#                             block_comparador = False
+                            
+#                             gru_mod = retorno_extract['return']['dados_uc']['gru_mod']
+    
+#                             suppliers_data = pk.call_compardor(id_uc = returno_insert_fatura['id_uc'], force_recalculate = True, hist_consumo = False if gru_mod.startswith("A") else True, db = db)
+#                             return_comparador = pk.create_comparator(id_uc = returno_insert_fatura['id_uc'], suppliers_data = suppliers_data, db = db)
+    
+                            
+#                             if return_comparador['status_code'] == 200:
+#                                 actions['2'] = "Voltar ao início e cadastrar nova unidade consumidora"
+#                                 messages['comparador'] = "Comparador gerado com sucesso"
+#                                 dict_return = {'status_code':return_comparador['status_code'], 
+#                                                'link':return_comparador['link'],
+#                                                'id_uc':returno_insert_fatura['id_uc'],
+#                                                'status':status,
+#                                                'messages':messages,
+#                                                'actions':actions}
+#                             else:
+#                                 actions['2'] = "Finalizar cadastro na área logada"
+#                                 messages['comparador'] = return_comparador['detail']
+#                                 dict_return = {'status_code':return_comparador['status_code'], 
+#                                                'link':'https://agentes.condutive.com/',
+#                                                'id_uc':returno_insert_fatura['id_uc'],
+#                                                'status':status,
+#                                                'messages':messages,
+#                                                'actions':actions}
+#                         else:
+#                             messages['dados_ucInsert'] = 'Os dados não foram inseridos na tabela public.dados_uc. Erro: {}'.format(returno_insert_fatura)
+#                             block_comparador = True
+#                             actions['2'] = "Fazer cadastro da unidade consumidora na área logada"
+#                             dict_return = {'status_code':417, 
+#                                            'link':'https://agentes.condutive.com/',
+#                                            'status':status,
+#                                            'messages':messages,
+#                                            'actions':actions}
+    
+#                     else:
+#                         messages['extraction_log'] = "Não foi possível realizar extração da fatura corretamente através da função pk.callBack_fromId Erro: {}".format(retorno_extract['return'])
+#                         block_comparador = True
+#                         actions['2'] = "Fazer cadastro da unidade consumidora na área logada"
+#                         dict_return = {'status_code':417, 
+#                                        'link':'https://agentes.condutive.com/',
+#                                        'status':status,
+#                                        'messages':messages,
+#                                        'actions':actions}
+#                 else:
+#                     messages['doubt'] = f"ELSE extraction: {request_extraction} & doct_type: {status['doc_type']}"
+#                     print("Não sei porque caiu aqui. {msg_leitura}")
+    
+#                     dict_return = {'status_code':100,
+#                                        'status':status,
+#                                        'messages':messages}
+#             return dict_return
+#         else:
+#             #Erro multiplos dados pra mesma UC, voltar com os dados pro consumidor
+#             messages['initial_df'] = "Foi encontrada mais de uma unidade consumidora neste local com caracteristicas similares. Vamos ter que analisar este caso em particular e seu lider entratá em contrato com você em breve. Obrigado. "
+#             #envar uma mensagem ao lider falando desta ocorrência
+#             return {"status_code":403, "status": status, "messages":messages, "dados_uc":uc_v1.to_dict(orient='records')}
         
-            unidade = "Dado dupliicado na base de dados, conferido via CEP e valor de fatura"
-            mensagem = "O dado inserido está duplicado na base de dados verificamos que a unidade {apelido_uc} registrada no CEP {cep} com o valor de R$ {valor_fatura}".format(**dicty_initial)
-        
-            # return {"status_code":208, "status": unidade, "mensagem":mensagem, "actions":actions, 'return_data':{"insert_data":{"cep":cep, "nr_documento": nr_documento, "valor_fatura":valor_fatura},"dados_uc":uc_v1.to_dict(orient='records')}}
-        
-        #se der algum erro notificar o lider
-    else:
-        #Erro multiplos dados pra mesma UC, voltar com os dados pro consumidor
-        unidade = "Dado duplicado para mais de uma UC"
-        mensagem = "Foi encontrada mais de uma unidade consumidora neste local com caracteristicas similares. Vamos ter que analisar este caso em particular e seu lider entratá em contrato com você em breve. Obrigado. "
-        #envar uma mensagem ao lider falando desta ocorrência
-        return {"status_code":status_code, "status": unidade, "mensagem":mensagem, "actions":actions, 'return_data':{"insert_data":{"cep":cep, "nr_documento":nr_documento, "valor_fatura":valor_fatura},"dados_uc":uc_v1.to_dict(orient='records')}}
+#     except Exception as exe:
+#         return {"status_code":500, "detail":str(exe)}
+
+def cadastro_uc(dicty_initial, url_doct, request_extraction=True, db='dev'):
+    try:
+        # ---------------------------
+        # Helper Functions
+        # ---------------------------
+
+        def build_return(code, status, messages, actions=None, link=None, id_uc=None):
+            return {
+                "status_code": code,
+                "status": status,
+                "messages": messages,
+                "actions": actions or {"1": "Finalizar solicitação"},
+                **({"id_uc": id_uc} if id_uc else {}),
+                **({"link": link} if link else {})
+            }
+
+        def insert_uc(insert_dict, status, messages, uc_v1, action_msg):
+            """Insert UC in DB and build proper response."""
+            insert_query = pk.key_loops(payload=insert_dict, table="public.dados_uc")
+            result = pk.get_db('public', insert_query, db)
+
+            if result["status_code"] != 201:
+                messages["dados_ucInsert"] = f"Erro ao inserir {action_msg}: {result}"
+                return build_return(417, status, messages)
+
+            # insertion ok
+            status['write_status_code'] = 102
+            id_uc = pk.get_db("public", query.format(**dicty_initial), db).id_uc.iloc[-1]
+
+            messages["comparador"] = action_msg
+            actions = {
+                "1": "Finalizar solicitação",
+                "2": f"Acessar área logada e atualizar dados da UC {id_uc}"
+            }
+
+            return build_return(102, status, messages, actions, "https://agentes.condutive.com/", id_uc)
+
+        # ---------------------------
+        # Initial Setup
+        # ---------------------------
+        query = """
+            SELECT * FROM public.dados_uc 
+            WHERE nr_documento = '{nr_documento}' 
+            AND cod_agente = '{cod_agente}' 
+            AND (cep = '{cep}' OR valor_fatura = '{valor_fatura}');
+        """
+
+        uc_v1 = pk.get_db("public", query.format(**dicty_initial), db)
+
+        insert_dict = {**dicty_initial, "url_fatura": url_doct}
+        status = {
+            "write_status_code": 100,
+            "insertion_type": "Cadastro simples",
+            "requested_extraction": request_extraction,
+            "db": db,
+            "dicty_initial": insert_dict
+        }
+        messages = {}
+
+        # MULTIPLE UC FOUND
+        if uc_v1.shape[0] >= 2:
+            messages['initial_df'] = (
+                "Foi encontrada mais de uma unidade consumidora neste local. "
+                "Seu líder entrará em contato com você."
+            )
+            return {
+                "status_code": 403,
+                "status": status,
+                "messages": messages,
+                "dados_uc": uc_v1.to_dict(orient='records')
+            }
+
+        # ---------------------------
+        # Single or zero UC
+        # ---------------------------
+        messages['initial_df'] = f"DF inicial com {uc_v1.shape[0]} linhas"
+
+        url_status = pk.url_check(url_doct, request_extraction)
+        status['doct_readable'] = url_status['readable']
+
+        # ------------------------------------------------------------------
+        # CASE 1 — DOCUMENT NOT READABLE
+        # ------------------------------------------------------------------
+        if not url_status["readable"]:
+            messages['leitura_doct'] = (
+                "Não foi possível realizar a leitura deste documento"
+            )
+
+            # existing UC but unreadable doc → do not update
+            if uc_v1.shape[0] == 1:
+                messages['leitura_doct'] += ". Não atualizaremos os dados já cadastrados."
+                return build_return(403, status, messages)
+
+            # new UC → insert basic record
+            return insert_uc(
+                insert_dict, status, messages,
+                uc_v1,
+                "Comparador não solicitado dado o cadastro simples"
+            )
+
+        # ------------------------------------------------------------------
+        # CASE 2 — DOCUMENT READABLE BUT NO EXTRACTION
+        # ------------------------------------------------------------------
+        from pathlib import Path
+        status['doc_type'] = Path(url_doct).suffix.lower()
+
+        extraction_possible = status['doc_type'] == ".pdf" and request_extraction
+
+        if not extraction_possible:
+            # Copy guessed fields
+            insert_dict.update(url_status['guessed'])
+            status['insertion_type'] = "Cadastro parcial"
+
+            msg = "Fatura legível mas "
+            msg += "extração não foi solicitada" if not request_extraction else f"documento é {status['doc_type']}"
+            messages["leitura_doct"] = msg
+
+            # do not update existing unreadable UC
+            if uc_v1.shape[0] == 1:
+                messages['leitura_doct'] += ". Não atualizaremos os dados já cadastrados."
+                return build_return(403, status, messages)
+
+            return insert_uc(
+                insert_dict, status, messages,
+                uc_v1,
+                "Comparador não solicitado dado o cadastro parcial"
+            )
+
+        # ------------------------------------------------------------------
+        # CASE 3 — FULL EXTRACTION (PDF + extraction requested)
+        # ------------------------------------------------------------------
+        status["insertion_type"] = "Cadastro completo"
+
+        ret_extract = pk.callBack_fromId_4docs(
+            request_id=url_status['extraction']['request_id'],
+            credenciais=url_status['extraction']['credenciais'],
+            pdf_url=url_status['extraction']['url_fatura'],
+            db=db
+        )
+        status['extract_status_code'] = ret_extract['status_code']
+
+        if ret_extract['status_code'] != 200:
+            messages['extraction_log'] = f"Erro na extração: {ret_extract['return']}"
+            return build_return(417, status, messages)
+
+        # extraction ok
+        messages["extraction_log"] = "Extraction ok"
+        dados = ret_extract['return']['dados_uc']
+
+        # check recency
+        import datetime as dt
+        from dateutil.relativedelta import relativedelta
+        data_fatura = dt.datetime.strptime(dados['data_ref'], '%Y-%m-%d')
+        diff = relativedelta(dt.datetime.today(), data_fatura)
+        if diff.months > 3:
+            status['write_status_code'] = 103
+            messages["defasagem_fatura"] = f"Fatura está com {diff.months} mês de defasagem"
+        else:
+            messages["defasagem_fatura"] = "Fatura atualizada"
+
+        # POST or PUT message
+        status["db_write"] = "POST" if uc_v1.shape[0] == 0 else "PUT"
+        messages["update_context"] = (
+            "Inserindo pela primeira vez na base"
+            if uc_v1.shape[0] == 0 else
+            f"Atualizando dados. Versão antiga {uc_v1.data_ref.iloc[-1]} atualizada para {dados['data_ref']}"
+        )
+
+        # insert final UC data
+        ret_insert = pk.insert_dadosFatura(
+            tidy_json=ret_extract,
+            nr_documento=dicty_initial.get('nr_documento'),
+            id_prospect=dicty_initial.get('id_prospect'),
+            other=None,
+            db=db
+        )
+        status['write_status_code'] = ret_insert['status_code']
+
+        if ret_insert['status_code'] == 500:
+            messages['dados_ucInsert'] = f"Erro no insert: {ret_insert}"
+            return build_return(417, status, messages)
+
+        # insert ok → comparator
+        messages['dados_ucInsert'] = "Dados inseridos com sucesso"
+        id_uc = ret_insert["id_uc"]
+        gru_mod = dados['gru_mod']
+
+        suppliers_data = pk.call_compardor(
+            id_uc=id_uc,
+            force_recalculate=True,
+            hist_consumo=not gru_mod.startswith("A"),
+            db=db
+        )
+
+        ret_comp = pk.create_comparator(id_uc=id_uc, suppliers_data=suppliers_data, db=db)
+
+        if ret_comp['status_code'] == 200:
+            messages["comparador"] = "Comparador gerado com sucesso"
+            return build_return(
+                200, status, messages,
+                {
+                    "1": "Finalizar solicitação",
+                    "2": "Voltar ao início e cadastrar nova unidade consumidora"
+                },
+                ret_comp['link'], id_uc
+            )
+
+        messages["comparador"] = ret_comp["detail"]
+        return build_return(
+            ret_comp['status_code'],
+            status,
+            messages,
+            {"2": "Finalizar cadastro na área logada"},
+            "https://agentes.condutive.com/",
+            id_uc
+        )
+
+    except Exception as exe:
+        return {"status_code": 500, "detail": str(exe)}
 
 
 def newLead_whats(return_data, db):
