@@ -508,7 +508,7 @@ def cadastro_uc(dicty_initial, url_doct, request_extraction=True, db='dev'):
                 **({"link": link} if link else {})
             }
 
-        def insert_uc(insert_dict, status, messages, uc_v1, action_msg):
+        def insert_uc(insert_dict, status, messages, uc_v1, action_msg, db):
             """Insert UC in DB and build proper response."""
             insert_dict['apelido_uc'] = pk.get_db('public', "SELECT nome FROM public.prospect WHERE id = {}".format(insert_dict['id_prospect']), db).nome.iloc[-1]
             insert_query = pk.key_loops(payload=insert_dict, table="public.dados_uc")
@@ -590,7 +590,7 @@ def cadastro_uc(dicty_initial, url_doct, request_extraction=True, db='dev'):
             return insert_uc(
                 insert_dict, status, messages,
                 uc_v1,
-                "Comparador não solicitado dado o cadastro simples"
+                "Comparador não solicitado dado o cadastro simples", db
             )
 
         # ------------------------------------------------------------------
@@ -618,7 +618,7 @@ def cadastro_uc(dicty_initial, url_doct, request_extraction=True, db='dev'):
             return insert_uc(
                 insert_dict, status, messages,
                 uc_v1,
-                "Comparador não solicitado dado o cadastro parcial"
+                "Comparador não solicitado dado o cadastro parcial", db
             )
 
         # ------------------------------------------------------------------
