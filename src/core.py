@@ -497,9 +497,6 @@ def cadastro_doct(tipo_doct, nr_documento, id_prospect, db = 'dev'):
 
 def cadastro_uc(dicty_initial, url_doct, request_extraction=True, db='dev'):
     try:
-        # ---------------------------
-        # Helper Functions
-        # ---------------------------
 
         def build_return(code, status, messages, actions=None, link=None, id_uc=None):
             return {
@@ -513,6 +510,7 @@ def cadastro_uc(dicty_initial, url_doct, request_extraction=True, db='dev'):
 
         def insert_uc(insert_dict, status, messages, uc_v1, action_msg):
             """Insert UC in DB and build proper response."""
+            insert_dict['apelido_uc'] = pk.get_db('public', "SELECT nome FROM public.prospect WHERE id = {}".format(insert_dict['id_prospect']), db).nome.iloc[-1]
             insert_query = pk.key_loops(payload=insert_dict, table="public.dados_uc")
             result = pk.get_db('public', insert_query, db)
 
