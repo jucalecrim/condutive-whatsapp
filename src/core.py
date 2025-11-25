@@ -17,7 +17,8 @@ def stauts_ucs(tel, db = 'prod'):
                       ad1.created_at as data_status,
                       tb2.tipo_doct,
                       tb3.id_agente,
-                      ca.id_lider
+                      ca.id_lider,
+                      tb1.created_at
                     from
                       dados_uc as tb1
                       left join doct_cliente as tb2 on tb1.nr_documento = tb2.nr_documento
@@ -29,16 +30,21 @@ def stauts_ucs(tel, db = 'prod'):
     
         df = pk.get_db('fornecedores', query, db)
         return df
+
     else:
         return check1
     
-def ver_ucs(tel, db = 'prod'):
+def ver_ucs(tel, show_all, db = 'prod'):
     try:
-        df_all = stauts_ucs(tel, db)
+        df_all = stauts_ucs(tel,  db)
         if type(df_all) == dict:
             return df_all
         
         df_filter = df_all[df_all.status == 'Aprovado']
+        if df_filter.shape[0] == 0:
+            return {"status_code":200, 'message':'Não existem unidades conusmidoras aprovadas para este agente'}
+        elif show_all == False:
+            df_filter = df_filter.head(10)
         
         query = "select id, uc_id as id_uc, comparator_type from public.comparators_history where uc_id in {};".format(str([int(x) for x in df_filter.id_uc.unique()]).replace("[", "(").replace("]", ")"))
         comparadores = pk.get_db('public', query, db)
@@ -69,7 +75,7 @@ def ver_ucs(tel, db = 'prod'):
         dict_return = {"status_code":400, 'response':str(e)}
         return dict_return
 
-def ucs_problema(tel, db = 'prod'):
+def ucs_problema(tel, show_all, db = 'prod'):
     try:
         df_all = stauts_ucs(tel, db)
         if type(df_all) == dict:
@@ -77,7 +83,10 @@ def ucs_problema(tel, db = 'prod'):
         
         list_aprovado = df_all[df_all.status == 'Aprovado'].id_uc.unique()
         df_filter = df_all[df_all.status != 'Aprovado']
-        #TODO erro neste DF sendo originado
+        if df_filter.shape[0] == 0:
+            return {"status_code":200, 'message':'Não existem unidades conusmidoras em espera para este Agente'}
+        elif show_all == False:
+            df_filter = df_filter.head(10)
         
         new_dict = {}
         for i in df_filter.id_uc:
