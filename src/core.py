@@ -496,11 +496,11 @@ def cadastro_doct(tipo_doct, nr_documento, id_prospect, db = 'dev'):
 #         return {"status_code":500, "detail":str(exe)}
 
 def cadastro_uc(dicty_initial, url_doct, request_extraction, db):
-    print(request_extraction)
-    print(db)
     try:
 
         def build_return(code, status, messages, actions=None, link=None, id_uc=None):
+            pk.notify_error("juca@condutive.com.br", f"<title>Cadastro UC WhatsApp Output</title>. <p><strong>Status Code</strong>: {code}</p> <p><strong>Status</strong>: {status}</p> <p><strong>Message</strong>: {messages}</p>", "API App CadUC notification {}".format(code), db)
+            
             return {
                 "status_code": code,
                 "status": status,

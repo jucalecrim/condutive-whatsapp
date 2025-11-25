@@ -22,6 +22,7 @@ class TipoDocumento(str, Enum):
 class BancoDados(str, Enum):
     PROD = "dev"
     DEV = "prod"
+    
 # -----------------------------
 # Frontpage
 # -----------------------------
