@@ -48,13 +48,13 @@ def check_cel(tel: int, db: BancoDados = Query(...)):
 # -----------------------------
 @app.get("/ver", 
          description = "Ver quais unidade consumidoras estão com o comparador disponível para uso")
-def route_ver_ucs(tel: int, db: BancoDados = Query(...)):
-    return ver_ucs(tel, db.value)
+def route_ver_ucs(tel: int, show_all: bool, db: BancoDados = Query(...)):
+    return ver_ucs(tel, show_all, db.value)
 
 @app.get("/espera",
          description = "Ver quais unidade consumidoras estão aguardando comparador por alguma pendência")
-def route_ucs_problema(tel: int, db: BancoDados = Query(...)):
-    return ucs_problema(tel, db.value)
+def route_ucs_problema(tel: int, show_all: bool, db: BancoDados = Query(...)):
+    return ucs_problema(tel, show_all, db.value)
 
 # -----------------------------
 # Cadastro de Lead
