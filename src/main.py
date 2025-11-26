@@ -46,23 +46,23 @@ def check_cel(tel: int, db: BancoDados = Query(...)):
 # -----------------------------
 # WhatsApp Flows
 # -----------------------------
-@app.get("/ver", 
-         description = "Ver quais unidade consumidoras estão com o comparador disponível para uso")
+@app.get("/ver")
 def route_ver_ucs(tel: int, show_all: bool, db: BancoDados = Query(...)):
+    """ Ver quais unidade consumidoras estão com o comparador disponível para uso
+        - Caso insira show_all como Falso: aparecerá apenas os 10 primeiros itens da lista"""
     return ver_ucs(tel, show_all, db.value)
 
-@app.get("/espera",
-         description = "Ver quais unidade consumidoras estão aguardando comparador por alguma pendência")
+@app.get("/espera")
 def route_ucs_problema(tel: int, show_all: bool, db: BancoDados = Query(...)):
+    """ Ver quais unidade consumidoras estão aguardando comparador por alguma pendência
+        - Caso insira show_all como Falso: aparecerá apenas os 10 primeiros itens da lista"""
     return ucs_problema(tel, show_all, db.value)
 
 # -----------------------------
 # Cadastro de Lead
 # -----------------------------
 @app.post("/cadastro_lead", 
-          summary = "Envio de dados cadastraris de um Prospect/Lead", 
-          description = """ O Telefone do agente é utilizado para autenticação e conferir todas as informaçõe da base de dados.
-          Caso tenha mais de um dado de entrada ligado ao cadastro dos prospects deste agente a função retornará um alerta""")
+          summary = "Envio de dados cadastraris de um Prospect/Lead")
 def route_new_lead(
     db: BancoDados = Query(...),
     tel_agente: int = Query(...),
@@ -71,6 +71,8 @@ def route_new_lead(
     email: Optional[str] = Query(None)
     
 ):
+    """ O Telefone do agente é utilizado para autenticação e conferir todas as informaçõe da base de dados.
+        - Caso tenha mais de um dado de entrada ligado ao cadastro dos prospects deste agente a função retornará um alerta"""
 
     if pk.contains_number(nome):
         raise HTTPException(status_code=400, detail="Nome não pode conter números")
@@ -93,15 +95,7 @@ def route_new_lead(
 # Cadastro de Documento
 # -----------------------------
 @app.post("/cadastro_doct",
-          summary = "Validação de unidade consumidora atraves de um documento ou registro do mesmo",
-          description= """Realizamos os seguintes passos de conferência neste endpoint
-                          - Conferir se o documento existe na base
-                              - Se sim: conferir se há alguma unidade consumidora atrelada a este documento
-                                  - Se sim: Retornar a lista de UCs atreladas a este documento
-                                  - Se não: Autorizar o cliente a inserir uma nova unidade consumidora atrelada ao documento existente
-                              - Se não: conferir se o documento é valido
-                                  - Se sim: Cadastrar o documento corretamente na base de dados e autorizar o usuário a prosseguir
-                                  - Se não: Retornar os dados de erro e solicitar os dados novamente""")
+          summary = "Validação de unidade consumidora atraves de um documento ou registro do mesmo")
 def route_new_doct(
     db: BancoDados = Query(...),
     tipo_doct: TipoDocumento = Query(...),
@@ -109,7 +103,14 @@ def route_new_doct(
     id_prospect: int = Query(...),
     
 ):
-
+    """Realizamos os seguintes passos de conferência neste endpoint
+                    - Conferir se o documento existe na base
+                        - Se sim: conferir se há alguma unidade consumidora atrelada a este documento
+                            - Se sim: Retornar a lista de UCs atreladas a este documento
+                            - Se não: Autorizar o cliente a inserir uma nova unidade consumidora atrelada ao documento existente
+                        - Se não: conferir se o documento é valido
+                            - Se sim: Cadastrar o documento corretamente na base de dados e autorizar o usuário a prosseguir
+                            - Se não: Retornar os dados de erro e solicitar os dados novamente"""
     try:
         # Validate CPF
         if tipo_doct == TipoDocumento.CPF and len(nr_documento) != 11:
@@ -134,11 +135,13 @@ def route_new_doct(
 # Distribuidora por CEP
 # -----------------------------
 @app.get("/find_disco",
-         summary = "Identificação de distribuidora a partir de CEP",
-         description = """Antes de pegar todos os novos dados para cadastro de uma UC precisamos que o agente identifique qual é a distribuidora que atende a UC.
-                         A partir do CEP validamos quais são as distribuidoras que atendem a região do cliente.
-                         Este dado será utilizado no próximo end point cadastro_uc""")
+         summary = "Identificação de distribuidora a partir de CEP")
 def find_disco(cep: str, db: BancoDados = Query(...)):
+    """
+    Antes de pegar todos os novos dados para cadastro de uma UC precisamos que o agente identifique qual é a distribuidora que atende a UC.
+    - A partir do CEP validamos quais são as distribuidoras que atendem a região do cliente.
+    - Este dado será utilizado no próximo end point cadastro_uc
+    """
     full_data = pk.check_cep(cep)
 
     if not full_data.get("exists"):
@@ -162,9 +165,9 @@ def find_disco(cep: str, db: BancoDados = Query(...)):
 
 @app.post("/upload-document")
 async def upload_document(
-    path: str = Form(""),
+    # path: str = Form(""),
     file: UploadFile = File(...),
-    authorization: str = Header(None),
+    # authorization: str = Header(None),
 ):
     """
     Upload a document to Supabase Storage through the Edge Function.
@@ -175,7 +178,7 @@ async def upload_document(
     EDGE_FUNCTION_URL = "https://inozxjodesulcewzsbln.supabase.co/functions/v1/upload-to-storage"
     BUCKET_NAME = "whatsapp_files"
     SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlub3p4am9kZXN1bGNld3pzYmxuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MjA4NTIxMSwiZXhwIjoyMDY3NjYxMjExfQ.zYN4FdHJmgm1328TlH_PoZoP4pLEtoD4ijz0SkcbM1o"
-
+    path = ""
     # Read file content
     try:
         file_bytes = await file.read()
@@ -188,17 +191,17 @@ async def upload_document(
     # Build headers: prefer user JWT if provided; else use service role
     headers = {}
     token = None
-    if authorization:
-        # Normalize header to ensure Bearer prefix
-        token = authorization if authorization.lower().startswith("bearer ") else f"Bearer {authorization}"
-    else:
-        # Server-to-server fallback
-        if not SERVICE_ROLE_KEY:
-            raise HTTPException(
-                status_code=500,
-                detail="Missing SUPABASE_SERVICE_ROLE_KEY for server-to-server uploads"
-            )
-        token = f"Bearer {SERVICE_ROLE_KEY}"
+    # if authorization:
+    #     # Normalize header to ensure Bearer prefix
+    #     token = authorization if authorization.lower().startswith("bearer ") else f"Bearer {authorization}"
+    # else:
+    #     # Server-to-server fallback
+    #     if not SERVICE_ROLE_KEY:
+    #         raise HTTPException(
+    #             status_code=500,
+    #             detail="Missing SUPABASE_SERVICE_ROLE_KEY for server-to-server uploads"
+    #         )
+    token = f"Bearer {SERVICE_ROLE_KEY}"
 
     headers["Authorization"] = token
 
@@ -236,7 +239,8 @@ async def upload_document(
     return {
         "edge_status": resp.status_code,
         "edge_response": payload,
-        "used_auth": "user_jwt" if authorization else "service_role",
+        # "used_auth": "user_jwt" if authorization else "service_role",
+        "used_auth": "service_role",
     }
 # -----------------------------
 # URL Check

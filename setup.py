@@ -15,7 +15,7 @@ setup(
     version=get_version(),
     packages=find_packages(where="src"),
     package_dir={"": "src"},
-    install_requires=['fastapi', 'numpy', 'pandas', 'datetime', 'flask', 'gunicorn', 'uvicorn', 'requests', 'validate_docbr', 'psycopg2-binary', 'python-Levenshtein', 'PyMuPDF', 'python-docx', 'python-dateutil'],
+    install_requires=['fastapi', 'numpy', 'pandas', 'datetime', 'flask', 'gunicorn', 'uvicorn', 'requests', 'validate_docbr', 'psycopg2-binary', 'python-Levenshtein', 'PyMuPDF', 'python-docx', 'python-dateutil', 'python-multipart'],
     description="Pacote de formulas para API do bot de whatsapp",
     author="jucalecrim",
     author_email="jucalecrim@outlook.com",
