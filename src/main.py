@@ -1,8 +1,9 @@
-from fastapi import FastAPI, Header, HTTPException, Query, Request, Body
+from fastapi import FastAPI, Header, HTTPException, Query, Request, Body, UploadFile, Form, File
 from fastapi.responses import HTMLResponse, JSONResponse
 from typing import Optional
 from pydantic import BaseModel
 from enum import Enum
+import requests
 
 import pacote_back_condutive as pk
 from src.core import *
@@ -158,6 +159,85 @@ def find_disco(cep: str, db: BancoDados = Query(...)):
 
     return disco
 
+
+@app.post("/upload-document")
+async def upload_document(
+    path: str = Form(""),
+    file: UploadFile = File(...),
+    authorization: str = Header(None),
+):
+    """
+    Upload a document to Supabase Storage through the Edge Function.
+    - Uses user JWT if provided in Authorization header.
+    - Falls back to server-to-server using SUPABASE_SERVICE_ROLE_KEY when no Authorization is provided.
+    """
+    #Save Doct to URL
+    EDGE_FUNCTION_URL = "https://inozxjodesulcewzsbln.supabase.co/functions/v1/upload-to-storage"
+    BUCKET_NAME = "whatsapp_files"
+    SERVICE_ROLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlub3p4am9kZXN1bGNld3pzYmxuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MjA4NTIxMSwiZXhwIjoyMDY3NjYxMjExfQ.zYN4FdHJmgm1328TlH_PoZoP4pLEtoD4ijz0SkcbM1o"
+
+    # Read file content
+    try:
+        file_bytes = await file.read()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to read file: {e}")
+
+    if not file_bytes:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+
+    # Build headers: prefer user JWT if provided; else use service role
+    headers = {}
+    token = None
+    if authorization:
+        # Normalize header to ensure Bearer prefix
+        token = authorization if authorization.lower().startswith("bearer ") else f"Bearer {authorization}"
+    else:
+        # Server-to-server fallback
+        if not SERVICE_ROLE_KEY:
+            raise HTTPException(
+                status_code=500,
+                detail="Missing SUPABASE_SERVICE_ROLE_KEY for server-to-server uploads"
+            )
+        token = f"Bearer {SERVICE_ROLE_KEY}"
+
+    headers["Authorization"] = token
+
+    # Multipart form fields for Edge Function
+    data = {
+        "bucket": BUCKET_NAME,   # bucket NAME, not a URL
+        "path": path or "",      # optional; pass folder only, not filename
+    }
+    files = {
+        "file": (file.filename, file_bytes, file.content_type or "application/octet-stream")
+    }
+
+    # Call Edge Function
+    try:
+        resp = requests.post(
+            EDGE_FUNCTION_URL,
+            data=data,
+            files=files,
+            headers=headers,
+            timeout=60,
+        )
+    except requests.RequestException as e:
+        raise HTTPException(status_code=502, detail=f"Edge Function request failed: {e}")
+
+    # Parse response
+    try:
+        payload = resp.json()
+    except Exception:
+        payload = {"raw": resp.text}
+
+    # Bubble up non-2xx as API errors
+    if not (200 <= resp.status_code < 300):
+        raise HTTPException(status_code=resp.status_code, detail=payload)
+
+    return {
+        "edge_status": resp.status_code,
+        "edge_response": payload,
+        "used_auth": "user_jwt" if authorization else "service_role",
+    }
 # -----------------------------
 # URL Check
 # -----------------------------
