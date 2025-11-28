@@ -3,6 +3,110 @@ import pacote_back_condutive as pk
 import datetime as dt
 from dateutil.relativedelta import relativedelta
 
+def stauts_ucs(tel, db = 'prod'):
+    check1 = pk.check_agent_tel(tel, db)
+    if check1['status_code'] == 200:
+        query = f"""
+                    select
+                      tb3.nome as nome_lead,
+                      tb3.created_at as criado_em,
+                      tb1.id_uc,
+                      tb1.apelido_uc,
+                      tb2.nr_documento,
+                      ad1.status,
+                      ad1.created_at as data_status,
+                      tb2.tipo_doct,
+                      tb3.id_agente,
+                      ca.id_lider,
+                      tb1.created_at
+                    from
+                      dados_uc as tb1
+                      left join doct_cliente as tb2 on tb1.nr_documento = tb2.nr_documento
+                      left join prospect as tb3 on tb2.id_prospect = tb3.id
+                      left join agentes.cadastro_agente as ca on tb3.id_agente = ca.id
+                      left join agentes.audit_1 as ad1 on ad1.id_uc = tb1.id_uc
+                      WHERE ca.telefone = '{tel}'
+                      order by tb1.created_at desc;"""
+    
+        df = pk.get_db('fornecedores', query, db)
+        return df
+
+    else:
+        return check1
+    
+def ver_ucs(tel, show_all, db = 'prod'):
+    try:
+        df_all = stauts_ucs(tel,  db)
+        if type(df_all) == dict:
+            return df_all
+        
+        df_filter = df_all[df_all.status == 'Aprovado']
+        if df_filter.shape[0] == 0:
+            return {"status_code":200, 'message':'Não existem unidades conusmidoras aprovadas para este agente'}
+        elif show_all == False:
+            df_filter = df_filter.head(10)
+        
+        query = "select id, uc_id as id_uc, comparator_type from public.comparators_history where uc_id in {};".format(str([int(x) for x in df_filter.id_uc.unique()]).replace("[", "(").replace("]", ")"))
+        comparadores = pk.get_db('public', query, db)
+        
+        new_dict = {}
+        for i in df_filter.id_uc:
+            cut_df = comparadores[comparadores.id_uc == i]
+            if cut_df.shape[0] > 0:
+                if cut_df.comparator_type.iloc[-1] == "GD":
+                    link_comparador = 'https://agentes.condutive.com/proposta?comparatorId={}&type=GD'.format(cut_df.id.iloc[-1])
+                else:
+                    link_comparador = f'https://agentes.condutive.com/proposta_acl?ucId={i}&type=ACL'
+            else:
+                link_comparador = "Comparador ainda não solicitado"
+            
+            new_dict[i] = {'Nome do lead':df_filter[df_filter.id_uc == i].nome_lead.iloc[-1],
+                           'Data de Criação':str(df_filter[df_filter.id_uc == i].criado_em.iloc[-1].strftime("%Y-%m-%d %H:%M:%S")),
+                           'ID da UC':i,
+                           'Apelido da UC':df_filter[df_filter.id_uc == i].apelido_uc.iloc[-1],
+                           'Link Comparador': link_comparador,
+                           'Documento': df_filter[df_filter.id_uc == i].tipo_doct.iloc[-1] + ": " + df_filter[df_filter.id_uc == i].nr_documento.iloc[-1],
+                           "Data de Aprovação":str(df_filter[df_filter.id_uc == i].data_status.iloc[-1].strftime("%Y-%m-%d %H:%M:%S"))}
+            
+            del link_comparador
+        dict_return = {"status_code":200, 'response':new_dict, 'message':'Estas são as unidades consumidoras aprovadas para comparação'}
+        return new_dict
+    except Exception as e:
+        dict_return = {"status_code":400, 'response':str(e)}
+        return dict_return
+
+def ucs_problema(tel, show_all, db = 'prod'):
+    try:
+        df_all = stauts_ucs(tel, db)
+        if type(df_all) == dict:
+            return df_all
+        
+        list_aprovado = df_all[df_all.status == 'Aprovado'].id_uc.unique()
+        df_filter = df_all[df_all.status != 'Aprovado']
+        if df_filter.shape[0] == 0:
+            return {"status_code":200, 'message':'Não existem unidades conusmidoras em espera para este Agente'}
+        elif show_all == False:
+            df_filter = df_filter.head(10)
+        
+        new_dict = {}
+        for i in df_filter.id_uc:
+            if i in list_aprovado:
+                pass
+            else:
+                new_dict[i] = {'Nome do lead':df_filter[df_filter.id_uc == i].nome_lead.iloc[-1],
+                               'Data de Criação':str(df_filter[df_filter.id_uc == i].criado_em.iloc[-1].strftime("%Y-%m-%d %H:%M:%S")),
+                               'ID da UC':i,
+                               'Apelido da UC':df_filter[df_filter.id_uc == i].apelido_uc.iloc[-1],
+                               'Documento': df_filter[df_filter.id_uc == i].tipo_doct.iloc[-1] + ": " + df_filter[df_filter.id_uc == i].nr_documento.iloc[-1],
+                               'Status': df_filter[df_filter.id_uc == i].status.iloc[-1],
+                               "Última atualização":str(df_filter[df_filter.id_uc == i].data_status.iloc[-1].strftime("%Y-%m-%d %H:%M:%S"))}
+            if new_dict == {}:
+                return {"status_code":400, 'message':"Todas as unidades consumidoras que você cadastrou estão aprovadas e não precisam de edição"}
+            else:
+                return {"status_code":200, 'response':new_dict, 'message':{'1':"Estas são as unidades consumidoras que apresentam inconsistências. Para aprovação faça o login na sua área logada -> navegue para UCs -> Selecione a unidade desejada e faça as devidas alterações. Caso persistir as dúvidas contacte seu lider.", '2':"Aqui está o link para acessar a sua área logada: https://agentes.condutive.com/auth"}}
+    except Exception as e:
+        dict_return = {"status_code":400, 'response':str(e)}
+        return dict_return
 
 def cadastro_lead(tel_agente, nome, telefone, email, db = 'dev'):
     #Parte 1: Checkar id do agente
