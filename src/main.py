@@ -181,9 +181,6 @@ async def upload_document(
     except Exception as e:
         return {'status_code':400, 'detail':f"Failed to read file: {e}"}
     
-
-
-
 # -----------------------------
 # URL Check
 # -----------------------------
