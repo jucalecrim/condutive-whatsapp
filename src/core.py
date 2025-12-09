@@ -149,7 +149,7 @@ def cadastro_lead(tel_agente, nome, telefone, email, db = 'dev'):
                 actions = {"1":"Finalizar solicitação"}
                 status_code = 403
                 subject = f"Erro 403 cadastro lead WPP {nome}"
-                pk.notify_error("juca@condutive.com.br", prospect + f" Agente: {nome_agente} ({id_agente})", subject, db)
+                pk.notify_error("juca@condutive.com.br", prospect + f" Agente: {nome_agente} ({id_agente})", subject, None, db)
                 
             elif tb_prospect.shape[0] > 1:
                 #Cadastrado por mais de um agente
@@ -158,7 +158,7 @@ def cadastro_lead(tel_agente, nome, telefone, email, db = 'dev'):
                 actions = {"1":"Finalizar solicitação"}
                 status_code = 403
                 subject = f"Erro 403 cadastro lead WPP {nome}"
-                pk.notify_error("juca@condutive.com.br", prospect + f" Agente: {nome_agente} ({id_agente})", subject, db)
+                pk.notify_error("juca@condutive.com.br", prospect + f" Agente: {nome_agente} ({id_agente})", subject, None, db)
                 
             else:
                 #Cadastrado por ele mesmo anteriormente
@@ -198,7 +198,7 @@ def cadastro_lead(tel_agente, nome, telefone, email, db = 'dev'):
                 prospect = f"Novo lead {nome} solicitado para cadastro porém com erro ao escrever no banco de dados: {e}"
                 status_code = 417
                 subject = f"Erro 417 cadastro lead WPP {nome}"
-                pk.notify_error("juca@condutive.com.br", prospect + f" Agente: {nome_agente} ({id_agente})", subject, db)
+                pk.notify_error("juca@condutive.com.br", prospect + f" Agente: {nome_agente} ({id_agente})", subject, None, db)
             
             return {"status_code":status_code, "status": prospect, "mensagem":mensagem, "actions":{"1":"PF", "2":"PJ"}, 'return_data':return_data}
             
@@ -207,7 +207,7 @@ def cadastro_lead(tel_agente, nome, telefone, email, db = 'dev'):
     except Exception as e:
         subject = f"Erro ao cadastrar novo lead WPP {nome}"
         message = f"nome lead: {nome}, telefone: {telefone}, tel agente: {tel_agente} ERRO: {e}"
-        pk.notify_error("juca@condutive.com.br", message, subject, db)
+        pk.notify_error("juca@condutive.com.br", message, subject, None, db)
         return {'status_code':500, 'detail':str(e)}
 
 def cadastro_doct(tipo_doct, nr_documento, id_prospect, db = 'dev'):
@@ -286,7 +286,7 @@ def cadastro_doct(tipo_doct, nr_documento, id_prospect, db = 'dev'):
             else:
                 documento = documento + " Erro ao escrever novo documento no DB: "  + write_return['message']
                 subject = f"Erro 417 cadastro documento WPP {tipo_doct} - {nr_documento}"
-                pk.notify_error("juca@condutive.com.br", documento + f" {nr_documento} - Prospect: {id_prospect}", subject, db)
+                pk.notify_error("juca@condutive.com.br", documento + f" {nr_documento} - Prospect: {id_prospect}", subject, None, db)
                 status_code = 417
                 
             return {"status_code": status_code, "status": documento, "mensagem":mensagem, "actions":actions, 'return_data':return_data}
@@ -296,7 +296,7 @@ def cadastro_doct(tipo_doct, nr_documento, id_prospect, db = 'dev'):
             mensagem = "Você está tentando cadastrar o novo documento {} mas ele não é valido. Por favor confira as informações e insira um {} válido".format(tidy_doct_nr, tipo_doct)
             actions = {"1":"Finalizar solicitação", "2":"Tentar novamente cadastrar o documento atrelado a fatura de energia"}
             subject = f"Erro 406 cadastro documento WPP {tipo_doct} - {nr_documento}"
-            pk.notify_error("juca@condutive.com.br", mensagem + f" Prospect: {id_prospect}", subject, db)
+            pk.notify_error("juca@condutive.com.br", mensagem + f" Prospect: {id_prospect}", subject, None, db)
             
             return {"status_code": 406, "status": documento, "mensagem":mensagem, "actions":actions}
 
@@ -508,7 +508,7 @@ def cadastro_uc(dicty_initial, url_doct, request_extraction, db):
     try:
 
         def build_return(code, status, messages, actions=None, link=None, id_uc=None):
-            pk.notify_error("juca@condutive.com.br", f"<title>Cadastro UC WhatsApp Output</title>. <p><strong>Status Code</strong>: {code}</p> <p><strong>Status</strong>: {status}</p> <p><strong>Message</strong>: {messages}</p>", "API App CadUC notification {}".format(code), db)
+            pk.notify_error(email_lider = "juca@condutive.com.br", message = f"<title>Cadastro UC WhatsApp Output</title>. <p><strong>Status Code</strong>: {code}</p> <p><strong>Status</strong>: {status}</p> <p><strong>Message</strong>: {messages}</p>", subject = "API App CadUC notification {}".format(code), db =db)
             
             return {
                 "status_code": code,
