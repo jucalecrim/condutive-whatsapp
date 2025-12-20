@@ -185,11 +185,12 @@ async def upload_document(
 # URL Check
 # -----------------------------
 
-@app.post("/check_url",
-          summary = "Verificação se o documento enviado é legível ou não", 
-          description = "Este endpoint é utilizado em segundo plano para conferir se o URL enviado é legpivel e apto para envio de extração de dados ou não. Se a opção request_extraction for True os dados serão solicitados para extração na 4docs e retornara as credenciais na URL")
-def solicita_extracao(PDF_URL: str, request_extraction: Optional[bool] = Query(False)):
-    return pk.solicita_extract_url(PDF_URL, request_extraction)
+# @app.post("/check_url",
+#           summary = "Verificação se o documento enviado é legível ou não", 
+#           description = "Este endpoint é utilizado em segundo plano para conferir se o URL enviado é legpivel e apto para envio de extração de dados ou não. Se a opção request_extraction for True os dados serão solicitados para extração na 4docs e retornara as credenciais na URL")
+# def solicita_extracao(PDF_URL: str, request_extraction: Optional[bool] = Query(False)):
+#     return pk.solicita_extract_url(PDF_URL, request_extraction)
+
 # -----------------------------
 # Cadastro de UC
 # -----------------------------
